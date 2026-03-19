@@ -88,6 +88,9 @@ Implemented lightweight MiroFish-inspired components:
 - `sanity_check.py` (volatility guardrail)
 - `swarm_engine.py` (4-agent MAD-style debate)
 - `sandbox_pipeline.py` (runner)
+- `report_pipeline.py` now includes a **Swarm View** section in the final report.
+
+Portfolio ingestion also supports multi-screenshot mode via `MARKET_REPORT_IMAGE_PATHS` (comma-separated paths), enabling mixed layouts and larger portfolios.
 
 Run:
 

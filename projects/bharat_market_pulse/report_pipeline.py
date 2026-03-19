@@ -12,11 +12,32 @@ from config import get_settings
 from data_fetcher import fetch_all_sources
 from export_utils import ensure_output_dir, export_rows_csv, export_rows_json
 from llm_extractor import LLMExtractorSettings, run_llm_extraction
+from news_collector import collect_seed_news
 from ocr_engine import Holding, OCRError, run_ocr
+from swarm_engine import SwarmOutcome, run_swarm_debate
 from telegram_formatter import format_telegram_digest
 
 
-def render_report(bundle: AnalysisBundle) -> str:
+def _merge_holdings(existing: List[Holding], incoming: List[Holding]) -> List[Holding]:
+    """Merge holdings by ticker, keeping highest confidence entry."""
+    merged = {h.ticker: h for h in existing}
+    for h in incoming:
+        prev = merged.get(h.ticker)
+        if prev is None or h.confidence > prev.confidence:
+            merged[h.ticker] = h
+    return list(merged.values())
+
+
+def _image_paths_from_settings() -> List[str]:
+    """Resolve one or multiple screenshot paths from env settings."""
+    settings = get_settings()
+    paths = [p.strip() for p in settings.market_report_image_paths.split(",") if p.strip()]
+    if not paths:
+        paths = [settings.market_report_image_path]
+    return paths
+
+
+def render_report(bundle: AnalysisBundle, swarm: SwarmOutcome | None = None) -> str:
     """Render a friendly, descriptive daily report with sources.
 
     Args:
@@ -41,6 +62,27 @@ def render_report(bundle: AnalysisBundle) -> str:
     else:
         lines.append("- Not enough reliable input to generate a confident portfolio view today.")
     lines.append("")
+
+    if rows and rows[0].ticker != "N/A":
+        lines.append("## What This Means For You (Simple)")
+        buys = [r.ticker for r in rows if r.action == "Buy"]
+        holds = [r.ticker for r in rows if r.action == "Hold"]
+        sells = [r.ticker for r in rows if r.action == "Sell"]
+        lines.append(f"- **Add/accumulate watchlist:** {', '.join(buys) if buys else 'None today'}")
+        lines.append(f"- **Hold/monitor:** {', '.join(holds) if holds else 'None'}")
+        lines.append(f"- **Reduce/exit watchlist:** {', '.join(sells) if sells else 'None today'}")
+        lines.append("- Focus on risk control first; act only on high-confidence, catalyst-backed signals.")
+        lines.append("")
+
+    if swarm is not None:
+        lines.append("## Swarm View (4-Agent Predictive Sandbox)")
+        lines.append(
+            f"- Consensus: **{swarm.consensus_label}** ({swarm.consensus_score:+.2f}) | Confidence: **{swarm.confidence_1_to_10}/10**"
+        )
+        lines.append(f"- Sanity Guard: {swarm.sanity.reason}")
+        for n in swarm.notes[:3]:
+            lines.append(f"- {n}")
+        lines.append("")
 
     lines.append("## Important Global Events (and why you should care)")
     if bundle.global_events:
@@ -84,42 +126,54 @@ def render_report(bundle: AnalysisBundle) -> str:
 
 
 def main() -> None:
-    """Run agent-json -> LLM -> OCR extraction, then fetch/analyze/report."""
+    """Run extraction -> fetch -> analysis -> swarm -> report."""
     settings = get_settings()
-    image_path = settings.market_report_image_path
+    image_paths = _image_paths_from_settings()
 
     holdings: List[Holding] = []
 
+    # Preferred path for accuracy across different screenshot layouts.
     if settings.use_agent_extract_first:
         holdings = load_agent_extracted_holdings(settings.agent_extract_file_path)
         if holdings:
             print(f"Agent JSON extraction loaded: {len(holdings)} holdings.")
 
+    # LLM-first per screenshot when agent JSON is unavailable.
     if not holdings and settings.use_llm_first:
-        try:
-            llm_settings = LLMExtractorSettings(
-                api_key=settings.llm_api_key,
-                model=settings.llm_model,
-                base_url=settings.llm_base_url,
-                timeout_seconds=settings.llm_timeout_seconds,
-            )
-            holdings = run_llm_extraction(image_path, llm_settings)
-            print(f"LLM extraction succeeded: {len(holdings)} holdings parsed.")
-        except Exception as exc:
-            print(f"LLM extraction unavailable/failed, falling back to OCR ({exc})")
+        llm_settings = LLMExtractorSettings(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            base_url=settings.llm_base_url,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+        for image_path in image_paths:
+            try:
+                parsed = run_llm_extraction(image_path, llm_settings)
+                holdings = _merge_holdings(holdings, parsed)
+            except Exception as exc:
+                print(f"LLM extraction unavailable/failed for {image_path} ({exc})")
+        if holdings:
+            print(f"LLM extraction succeeded: {len(holdings)} merged holdings parsed.")
 
+    # OCR fallback per screenshot.
     if not holdings:
-        try:
-            holdings = run_ocr(image_path)
-            print(f"OCR fallback parsed: {len(holdings)} holdings.")
-        except OCRError as exc:
-            print(f"Data Deficiency Warning: OCR stage failed ({exc})")
-            holdings = []
+        for image_path in image_paths:
+            try:
+                parsed = run_ocr(image_path)
+                holdings = _merge_holdings(holdings, parsed)
+            except OCRError as exc:
+                print(f"Data Deficiency Warning: OCR failed for {image_path} ({exc})")
+        if holdings:
+            print(f"OCR fallback parsed: {len(holdings)} merged holdings.")
 
     feed_items = fetch_all_sources()
     bundle = build_analysis_bundle(holdings=holdings, items=feed_items)
 
-    report = render_report(bundle)
+    # S1+S2 predictive sandbox summary.
+    seeds = collect_seed_news(limit=10)
+    swarm = run_swarm_debate(seeds, rounds=3, baseline_volatility=0.25)
+
+    report = render_report(bundle, swarm=swarm)
     print(report)
 
     out_dir = (Path(__file__).resolve().parent / settings.report_output_dir).resolve()
