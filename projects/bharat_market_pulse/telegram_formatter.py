@@ -21,9 +21,9 @@ def format_telegram_digest(rows: Sequence[AnalysisRow]) -> str:
 
     lines = ["📊 Bharat Market Pulse", ""]
     for row in rows:
-        lines.append(f"• {row.ticker}: {row.action}")
+        lines.append(f"• {row.ticker}: {row.action} (confidence {row.confidence:.2f})")
         lines.append(f"  Sentiment: {row.sentiment}")
-        lines.append(f"  Context: {row.global_context}")
+        lines.append(f"  In simple words: {row.layman_summary}")
         if row.warning:
             lines.append(f"  ⚠️ {row.warning}")
         lines.append("")

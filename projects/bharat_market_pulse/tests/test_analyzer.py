@@ -25,4 +25,4 @@ def test_build_report_rows_with_data():
     rows = build_report_rows(holdings, items)
     assert len(rows) == 1
     assert rows[0].ticker == "TCS"
-    assert rows[0].action in {"Buy", "Hold", "Sell", "Hold (Divergence Opportunity)"}
+    assert rows[0].action in {"Buy", "Hold", "Sell"}

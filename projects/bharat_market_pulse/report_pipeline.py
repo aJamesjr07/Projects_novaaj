@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from analyzer import AnalysisRow, build_report_rows
+from analyzer import AnalysisBundle, AnalysisRow, build_analysis_bundle
 from config import get_settings
 from data_fetcher import fetch_all_sources
 from export_utils import ensure_output_dir, export_rows_csv, export_rows_json
@@ -14,23 +14,51 @@ from ocr_engine import Holding, OCRError, run_ocr
 from telegram_formatter import format_telegram_digest
 
 
-def render_report(rows: List[AnalysisRow]) -> str:
-    """Render final text report table.
+def render_report(bundle: AnalysisBundle) -> str:
+    """Render full layman-friendly report with citations and global events.
 
     Args:
-        rows: Analysis rows to render.
+        bundle: Analysis bundle with rows and global events.
 
     Returns:
-        Markdown table as string.
+        Markdown report string.
     """
-    header = "Ticker | Sentiment | Global Context | Action"
-    separator = "---|---|---|---"
-    lines = [header, separator]
+    rows = bundle.rows
+    lines = ["# Bharat Market Pulse - Daily Report", ""]
 
+    if bundle.global_events:
+        lines.append("## Global Events to Watch")
+        for e in bundle.global_events:
+            lines.append(f"- {e}")
+        lines.append("")
+
+    lines.append("## Portfolio Action Table")
+    lines.append("Ticker | Sentiment | Global Context | Action | Confidence")
+    lines.append("---|---|---|---|---")
     for row in rows:
-        lines.append(f"{row.ticker} | {row.sentiment} | {row.global_context} | {row.action}")
+        lines.append(
+            f"{row.ticker} | {row.sentiment} | {row.global_context} | {row.action} | {row.confidence:.2f}"
+        )
+    lines.append("")
+
+    lines.append("## In Simple Words")
+    for row in rows:
+        lines.append(f"- {row.layman_summary}")
         if row.warning:
-            lines.append(f"Data Deficiency Warning: {row.warning}")
+            lines.append(f"  - ⚠️ Data Deficiency Warning: {row.warning}")
+    lines.append("")
+
+    all_citations: List[str] = []
+    for row in rows:
+        all_citations.extend(row.citations)
+
+    unique_citations = list(dict.fromkeys(all_citations))
+    lines.append("## Sources")
+    if unique_citations:
+        for c in unique_citations:
+            lines.append(f"- {c}")
+    else:
+        lines.append("- Data Deficiency Warning: No reliable sources available today.")
 
     return "\n".join(lines)
 
@@ -47,9 +75,9 @@ def main() -> None:
         holdings = []
 
     feed_items = fetch_all_sources()
-    rows = build_report_rows(holdings=holdings, items=feed_items)
+    bundle = build_analysis_bundle(holdings=holdings, items=feed_items)
 
-    report = render_report(rows)
+    report = render_report(bundle)
     print(report)
 
     out_dir = (Path(__file__).resolve().parent / settings.report_output_dir).resolve()
@@ -61,10 +89,10 @@ def main() -> None:
     json_path = out_dir / f"daily_report_{timestamp}.json"
 
     md_path.write_text(report, encoding="utf-8")
-    export_rows_csv(rows, csv_path)
-    export_rows_json(rows, json_path)
+    export_rows_csv(bundle.rows, csv_path)
+    export_rows_json(bundle.rows, json_path)
 
-    digest = format_telegram_digest(rows)
+    digest = format_telegram_digest(bundle.rows)
     digest_path = out_dir / f"telegram_digest_{timestamp}.txt"
     digest_path.write_text(digest, encoding="utf-8")
 

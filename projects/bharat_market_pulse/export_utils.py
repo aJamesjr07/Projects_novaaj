@@ -27,11 +27,23 @@ def export_rows_csv(rows: Sequence[AnalysisRow], path: Path) -> None:
         rows: Rows to serialize.
         path: Output CSV path.
     """
+    fieldnames = [
+        "ticker",
+        "sentiment",
+        "global_context",
+        "action",
+        "confidence",
+        "layman_summary",
+        "citations",
+        "warning",
+    ]
     with path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["ticker", "sentiment", "global_context", "action", "warning"])
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
-            writer.writerow(asdict(row))
+            payload = asdict(row)
+            payload["citations"] = " | ".join(payload.get("citations", []))
+            writer.writerow(payload)
 
 
 def export_rows_json(rows: Sequence[AnalysisRow], path: Path) -> None:

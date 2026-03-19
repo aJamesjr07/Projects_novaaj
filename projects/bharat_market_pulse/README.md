@@ -47,6 +47,22 @@ Added:
 - Multi-format report exports (`.md`, `.csv`, `.json`)
 - Telegram digest formatter (`telegram_formatter.py`)
 
+## Phase 3.0 Upgrade
+
+Added:
+- Trusted source weighting (official/news/social reliability scoring)
+- Global events section (Fed/inflation/oil/dollar style context)
+- Citation-aware analysis per ticker
+- Confidence score per action row
+- Layman-friendly report text (`In Simple Words` section)
+
+### Report sections now
+
+1. Global Events to Watch
+2. Portfolio Action Table (with confidence)
+3. In Simple Words (easy explanation)
+4. Sources (citations)
+
 ## Testing
 
 ```bash

@@ -1,12 +1,12 @@
-"""Data fetcher for Indian market intelligence sources (X/Twitter + Reddit + News)."""
+"""Data fetcher for Bharat Market Pulse sources (social, news, and official feeds)."""
 
 from __future__ import annotations
 
-import os
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, List
 
 import requests
 
@@ -25,13 +25,20 @@ REDDIT_PILLARS = [
     "IndianStreetBets",  # Retail hype
 ]
 
+SOURCE_RELIABILITY = {
+    "official": 0.95,
+    "news": 0.78,
+    "twitter": 0.62,
+    "reddit": 0.52,
+}
+
 
 @dataclass
 class FeedItem:
     """Unified feed item object.
 
     Attributes:
-        source: Origin source (twitter/reddit/news).
+        source: Origin source (official/news/twitter/reddit).
         author: Account/subreddit/agency identity.
         text: Post headline/body.
         url: Canonical link.
@@ -90,6 +97,25 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _make_item(source: str, author: str, text: str, url: str, created_at: str, **metadata: str) -> FeedItem:
+    """Create a standardized feed item with reliability metadata.
+
+    Args:
+        source: Source family.
+        author: Source author/handle.
+        text: Item body text.
+        url: Item URL.
+        created_at: ISO timestamp.
+        **metadata: Additional metadata.
+
+    Returns:
+        FeedItem object.
+    """
+    reliability = SOURCE_RELIABILITY.get(source, 0.5)
+    payload = {"reliability": f"{reliability:.2f}", **{k: str(v) for k, v in metadata.items()}}
+    return FeedItem(source=source, author=author, text=text, url=url, created_at=created_at, metadata=payload)
+
+
 def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
     """Fetch latest posts from configured X/Twitter pillars.
 
@@ -98,10 +124,6 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
 
     Returns:
         List of FeedItem from pillar accounts.
-
-    Notes:
-        Requires X API bearer token in `X_BEARER_TOKEN` and a valid
-        API tier with recent tweet read access.
     """
     bearer_token = get_settings().x_bearer_token
     if not bearer_token:
@@ -111,16 +133,12 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
     items: List[FeedItem] = []
 
     for username in TWITTER_PILLARS:
-        # Step 1: Resolve user id.
         user_url = f"https://api.twitter.com/2/users/by/username/{username}"
-
         user_resp = with_exponential_backoff(lambda: requests.get(user_url, headers=headers, timeout=15))
-        user_data = user_resp.json().get("data", {})
-        user_id = user_data.get("id")
+        user_id = user_resp.json().get("data", {}).get("id")
         if not user_id:
             continue
 
-        # Step 2: Fetch latest tweets.
         tweets_url = (
             f"https://api.twitter.com/2/users/{user_id}/tweets"
             f"?max_results={max(5, min(100, limit_per_account))}&tweet.fields=created_at"
@@ -131,17 +149,17 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
         for t in tweets_data[:limit_per_account]:
             tweet_id = t.get("id", "")
             text = t.get("text", "")
-            created_at = t.get("created_at", _utc_now())
             if not text:
                 continue
             items.append(
-                FeedItem(
+                _make_item(
                     source="twitter",
                     author=f"@{username}",
                     text=text,
                     url=f"https://x.com/{username}/status/{tweet_id}" if tweet_id else f"https://x.com/{username}",
-                    created_at=created_at,
-                    metadata={"pillar": "indian_market"},
+                    created_at=t.get("created_at", _utc_now()),
+                    pillar="indian_market",
+                    region="india",
                 )
             )
 
@@ -152,15 +170,12 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
     """Fetch latest Reddit posts from configured pillar subreddits.
 
     Args:
-        limit_per_subreddit: Number of recent hot/new posts to retrieve.
+        limit_per_subreddit: Number of recent posts to retrieve.
 
     Returns:
         List of FeedItem from Reddit.
-
-    Notes:
-        Uses Reddit public JSON endpoints for MVP read-only ingestion.
     """
-    headers = {"User-Agent": "indian-market-intelligence-bot/1.0"}
+    headers = {"User-Agent": "bharat-market-pulse/1.0"}
     items: List[FeedItem] = []
 
     for sub in REDDIT_PILLARS:
@@ -170,31 +185,29 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
 
         for child in children:
             data = child.get("data", {})
-            title = data.get("title", "")
-            selftext = data.get("selftext", "")
-            permalink = data.get("permalink", "")
-            created_utc = data.get("created_utc")
-            created_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat() if created_utc else _utc_now()
-
-            text = (title + "\n" + selftext).strip()
+            text = (data.get("title", "") + "\n" + data.get("selftext", "")).strip()
             if not text:
                 continue
+            created_utc = data.get("created_utc")
+            created_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat() if created_utc else _utc_now()
+            permalink = data.get("permalink", "")
 
             items.append(
-                FeedItem(
+                _make_item(
                     source="reddit",
                     author=f"r/{sub}",
                     text=text,
                     url=f"https://reddit.com{permalink}" if permalink else f"https://reddit.com/r/{sub}",
                     created_at=created_at,
-                    metadata={"pillar": "indian_market"},
+                    pillar="indian_market",
+                    region="india",
                 )
             )
 
     return items
 
 
-def fetch_news_items(query: str = "India stock market", page_size: int = 20) -> List[FeedItem]:
+def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE", page_size: int = 20) -> List[FeedItem]:
     """Fetch market-relevant news items from NewsAPI.
 
     Args:
@@ -203,9 +216,6 @@ def fetch_news_items(query: str = "India stock market", page_size: int = 20) -> 
 
     Returns:
         List of FeedItem from news API.
-
-    Notes:
-        Requires NEWS_API_KEY environment variable.
     """
     api_key = get_settings().news_api_key
     if not api_key:
@@ -227,13 +237,102 @@ def fetch_news_items(query: str = "India stock market", page_size: int = 20) -> 
         if not text:
             continue
         items.append(
-            FeedItem(
+            _make_item(
                 source="news",
                 author=article.get("source", {}).get("name", "news"),
                 text=text,
                 url=article.get("url", ""),
                 created_at=article.get("publishedAt", _utc_now()),
-                metadata={"pillar": "indian_market"},
+                pillar="indian_market",
+                region="mixed",
+            )
+        )
+
+    return items
+
+
+def fetch_official_rss_items(limit_per_feed: int = 8) -> List[FeedItem]:
+    """Fetch official/regulatory headlines from public RSS feeds.
+
+    Args:
+        limit_per_feed: Maximum items per feed.
+
+    Returns:
+        List of FeedItem from official feeds.
+    """
+    feeds = [
+        ("SEBI", "https://www.sebi.gov.in/sebirss.xml"),
+    ]
+    items: List[FeedItem] = []
+
+    for author, url in feeds:
+        try:
+            resp = with_exponential_backoff(lambda: requests.get(url, timeout=20))
+            root = ET.fromstring(resp.text)
+            channel = root.find("channel")
+            if channel is None:
+                continue
+            for item in channel.findall("item")[:limit_per_feed]:
+                title = (item.findtext("title") or "").strip()
+                link = (item.findtext("link") or "").strip()
+                pub_date = (item.findtext("pubDate") or _utc_now()).strip()
+                if not title:
+                    continue
+                items.append(
+                    _make_item(
+                        source="official",
+                        author=author,
+                        text=title,
+                        url=link,
+                        created_at=pub_date,
+                        pillar="regulatory",
+                        region="india",
+                    )
+                )
+        except Exception:
+            continue
+
+    return items
+
+
+def fetch_global_event_items(page_size: int = 10) -> List[FeedItem]:
+    """Fetch macro global event headlines (Fed, inflation, crude, dollar).
+
+    Args:
+        page_size: Maximum number of articles.
+
+    Returns:
+        List of FeedItem tagged as global events.
+    """
+    api_key = get_settings().news_api_key
+    if not api_key:
+        return []
+
+    query = 'Fed OR "US inflation" OR "US jobs" OR "crude oil" OR "dollar index" OR "bond yields"'
+    endpoint = (
+        "https://newsapi.org/v2/everything"
+        f"?q={query}&language=en&pageSize={page_size}&sortBy=publishedAt&apiKey={api_key}"
+    )
+
+    resp = with_exponential_backoff(lambda: requests.get(endpoint, timeout=20))
+    articles = resp.json().get("articles", [])
+
+    items: List[FeedItem] = []
+    for article in articles:
+        title = article.get("title", "")
+        description = article.get("description", "")
+        text = (title + "\n" + (description or "")).strip()
+        if not text:
+            continue
+        items.append(
+            _make_item(
+                source="news",
+                author=article.get("source", {}).get("name", "global_news"),
+                text=text,
+                url=article.get("url", ""),
+                created_at=article.get("publishedAt", _utc_now()),
+                pillar="global_event",
+                region="global",
             )
         )
 
@@ -241,15 +340,17 @@ def fetch_news_items(query: str = "India stock market", page_size: int = 20) -> 
 
 
 def fetch_all_sources() -> List[FeedItem]:
-    """Fetch and combine all configured social and news sources.
+    """Fetch and combine all configured social, news, and official sources.
 
     Returns:
-        Unified list of FeedItem objects from all active sources.
+        Unified list of FeedItem objects from active sources.
     """
     items: List[FeedItem] = []
+    items.extend(fetch_official_rss_items())
+    items.extend(fetch_news_items())
+    items.extend(fetch_global_event_items())
     items.extend(fetch_twitter_items())
     items.extend(fetch_reddit_items())
-    items.extend(fetch_news_items())
     return items
 
 
