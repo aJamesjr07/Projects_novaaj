@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Iterable, List, Sequence
+import re
 
 from data_fetcher import FeedItem
 from ocr_engine import Holding
@@ -104,6 +105,20 @@ def _contains_any(text: str, keywords: Iterable[str]) -> bool:
     return any(k in t for k in keywords)
 
 
+def _is_low_signal_post(text: str) -> bool:
+    """Filter generic threads/noise from social feeds."""
+    t = (text or "").strip().lower()
+    if len(t) < 25:
+        return True
+    generic_patterns = [
+        r"bi-?weekly advice thread",
+        r"daily discussion",
+        r"all your personal queries",
+        r"dont act smart",
+    ]
+    return any(re.search(p, t) for p in generic_patterns)
+
+
 def _sentiment_labels(global_score: int, india_score: int) -> str:
     global_label = "Bullish" if global_score > 0 else "Bearish" if global_score < 0 else "Neutral"
     india_label = "Bullish" if india_score > 0 else "Bearish" if india_score < 0 else "Neutral"
@@ -188,7 +203,13 @@ def _extract_entity_relations(items: Sequence[FeedItem]) -> list[RelationEvidenc
     out: list[RelationEvidence] = []
     for item in items:
         text = item.text.lower()
+        if _is_low_signal_post(text):
+            continue
+
         rel = float(item.metadata.get("reliability", "0.5"))
+        if item.source == "reddit":
+            rel = max(0.35, rel - 0.08)
+
         for entity, terms, relation, polarity, reason in patterns:
             if any(term in text for term in terms):
                 out.append(
@@ -249,7 +270,7 @@ def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[Relation
     evidence = _rank_relevant_evidence(ticker, graph, limit=2)
     if evidence:
         lines = [f"{e.reason} ({e.source})" for e in evidence]
-        return " | ".join(lines)
+        return "; ".join(lines)
 
     # fallback to old deterministic sector map if no graph evidence
     t = ticker.upper()
@@ -269,20 +290,26 @@ def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[Relation
 def classify_action(global_score: int, india_score: int, graph_evidence: Sequence[RelationEvidence]) -> str:
     """Classify action into Buy/Hold/Sell without price targets.
 
-    Graph evidence gently tilts final action when macro signals are mixed.
+    B.2 calibration: avoid all-Buy bias by requiring stronger confirmation.
     """
     bullish = sum(1 for e in graph_evidence if e.polarity == "bullish")
     bearish = sum(1 for e in graph_evidence if e.polarity == "bearish")
+    neutral = sum(1 for e in graph_evidence if e.polarity == "neutral")
 
-    if global_score < 0 and india_score < 0:
+    # Strongly risk-off backdrop + bearish evidence.
+    if global_score <= -2 and india_score <= 0 and bearish >= bullish:
         return "Sell"
-    if global_score > 0 and india_score > 0:
+
+    # Buy only when both macro and evidence align clearly.
+    if global_score > 0 and india_score > 0 and bullish >= max(1, bearish + 1):
         return "Buy"
 
-    if bullish >= bearish + 1:
-        return "Buy"
-    if bearish >= bullish + 1:
+    # Mixed/uncertain evidence defaults to Hold.
+    if bearish > bullish or neutral >= bullish:
         return "Hold"
+
+    if bullish >= bearish + 2:
+        return "Buy"
     return "Hold"
 
 
@@ -316,8 +343,9 @@ def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str
 
     candidates = [
         i for i in items
-        if i.metadata.get("pillar") == "global_event"
-        or _contains_any(i.text.lower(), GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS)
+        if (i.metadata.get("pillar") == "global_event"
+        or _contains_any(i.text.lower(), GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS))
+        and not _is_low_signal_post(i.text)
     ]
 
     def _score(item: FeedItem) -> float:

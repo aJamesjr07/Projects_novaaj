@@ -54,8 +54,10 @@ def render_report(bundle: AnalysisBundle) -> str:
     lines.append("Ticker | Sentiment | Global Context | Action | Confidence")
     lines.append("---|---|---|---|---")
     for row in rows:
+        safe_sentiment = row.sentiment.replace("|", "/")
+        safe_context = row.global_context.replace("|", ";")
         lines.append(
-            f"{row.ticker} | {row.sentiment} | {row.global_context} | {row.action} | {row.confidence:.2f}"
+            f"{row.ticker} | {safe_sentiment} | {safe_context} | {row.action} | {row.confidence:.2f}"
         )
     lines.append("")
 
