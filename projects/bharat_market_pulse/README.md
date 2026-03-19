@@ -58,10 +58,23 @@ Added:
 
 ### Report sections now
 
-1. Global Events to Watch
-2. Portfolio Action Table (with confidence)
-3. In Simple Words (easy explanation)
-4. Sources (citations)
+1. Quick Read (30 seconds)
+2. Important Global Events (and why they matter)
+3. Portfolio Action Table (with confidence)
+4. In Simple Words (easy explanation)
+5. Sources (citations)
+
+## Automation (before open + after close)
+
+Use the provided schedule:
+
+```bash
+crontab scheduler_example.cron
+```
+
+This runs the report on weekdays:
+- 9:00 AM IST (before market open)
+- 3:45 PM IST (after market close)
 
 ## Testing
 

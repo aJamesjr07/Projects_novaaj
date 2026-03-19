@@ -194,17 +194,43 @@ def _layman_summary(ticker: str, action: str, sentiment: str, context: str) -> s
 
 
 def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str]:
-    """Extract top global event headlines for report context."""
+    """Extract and prioritize important global event headlines.
+
+    Events are tagged with a simple impact level and why-it-matters cue.
+    """
+    high_impact_terms = {"fed", "rate", "inflation", "crude", "oil", "bond", "yields", "dollar", "war"}
+
     candidates = [
         i for i in items
-        if i.metadata.get("pillar") == "global_event" or _contains_any(i.text.lower(), GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS)
+        if i.metadata.get("pillar") == "global_event"
+        or _contains_any(i.text.lower(), GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS)
     ]
-    ranked = sorted(candidates, key=lambda x: float(x.metadata.get("reliability", "0.5")), reverse=True)
+
+    def _score(item: FeedItem) -> float:
+        rel = float(item.metadata.get("reliability", "0.5"))
+        text = item.text.lower()
+        bonus = 0.2 if any(t in text for t in high_impact_terms) else 0.0
+        return rel + bonus
+
+    ranked = sorted(candidates, key=_score, reverse=True)
     out: List[str] = []
     for item in ranked[:limit]:
         headline = item.text.split("\n", 1)[0].strip()
-        if headline:
-            out.append(f"{headline} ({item.author})")
+        if not headline:
+            continue
+
+        text = item.text.lower()
+        level = "High" if any(t in text for t in high_impact_terms) else "Medium"
+        if "crude" in text or "oil" in text:
+            why = "May impact inflation and import-heavy sectors in India."
+        elif "fed" in text or "rate" in text or "yields" in text:
+            why = "Can shift global risk appetite and affect Indian equity flows."
+        elif "dollar" in text:
+            why = "May affect INR and exporters/importers differently."
+        else:
+            why = "Could influence overall market sentiment."
+
+        out.append(f"[{level}] {headline} ({item.author}) — {why} | Source: {item.url}")
     return out
 
 

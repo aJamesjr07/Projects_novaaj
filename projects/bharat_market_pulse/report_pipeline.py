@@ -15,7 +15,7 @@ from telegram_formatter import format_telegram_digest
 
 
 def render_report(bundle: AnalysisBundle) -> str:
-    """Render full layman-friendly report with citations and global events.
+    """Render a friendly, descriptive daily report with sources.
 
     Args:
         bundle: Analysis bundle with rows and global events.
@@ -26,11 +26,27 @@ def render_report(bundle: AnalysisBundle) -> str:
     rows = bundle.rows
     lines = ["# Bharat Market Pulse - Daily Report", ""]
 
+    lines.append("## Quick Read (30 seconds)")
+    if rows and rows[0].ticker != "N/A":
+        hold_count = sum(1 for r in rows if r.action == "Hold")
+        buy_count = sum(1 for r in rows if r.action == "Buy")
+        sell_count = sum(1 for r in rows if r.action == "Sell")
+        avg_conf = sum(r.confidence for r in rows) / max(len(rows), 1)
+        lines.append(
+            f"- Today we reviewed **{len(rows)} holdings**. Actions: **Buy {buy_count}**, **Hold {hold_count}**, **Sell {sell_count}**."
+        )
+        lines.append(f"- Overall confidence is **{avg_conf:.2f}** (higher = better source backing).")
+    else:
+        lines.append("- Not enough reliable input to generate a confident portfolio view today.")
+    lines.append("")
+
+    lines.append("## Important Global Events (and why you should care)")
     if bundle.global_events:
-        lines.append("## Global Events to Watch")
         for e in bundle.global_events:
             lines.append(f"- {e}")
-        lines.append("")
+    else:
+        lines.append("- No high-priority global trigger detected from available sources in this run.")
+    lines.append("")
 
     lines.append("## Portfolio Action Table")
     lines.append("Ticker | Sentiment | Global Context | Action | Confidence")
@@ -43,7 +59,7 @@ def render_report(bundle: AnalysisBundle) -> str:
 
     lines.append("## In Simple Words")
     for row in rows:
-        lines.append(f"- {row.layman_summary}")
+        lines.append(f"- **{row.ticker}:** {row.layman_summary}")
         if row.warning:
             lines.append(f"  - ⚠️ Data Deficiency Warning: {row.warning}")
     lines.append("")
