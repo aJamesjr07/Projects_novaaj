@@ -1,0 +1,16 @@
+collections:
+  jds:
+    path: ./md/jds
+    pattern: "**/*.md"
+  notes:
+    path: ./md/notes
+    pattern: "**/*.md"
+  research:
+    path: ./md/research
+    pattern: "**/*.md"
+  output:
+    path: ./md/output
+    pattern: "**/*.md"
+  logs:
+    path: ./md/logs
+    pattern: "**/*.md"
