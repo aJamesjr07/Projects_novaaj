@@ -19,7 +19,7 @@ def format_telegram_digest(rows: Sequence[AnalysisRow]) -> str:
     if not rows:
         return "Data Deficiency Warning: No report rows available."
 
-    lines = ["📊 Indian Market Intelligence Report", ""]
+    lines = ["📊 Bharat Market Pulse", ""]
     for row in rows:
         lines.append(f"• {row.ticker}: {row.action}")
         lines.append(f"  Sentiment: {row.sentiment}")

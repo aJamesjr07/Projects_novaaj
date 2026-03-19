@@ -1,4 +1,4 @@
-"""Daily Indian Market Intelligence report pipeline entrypoint."""
+"""Daily Bharat Market Pulse pipeline entrypoint."""
 
 from __future__ import annotations
 

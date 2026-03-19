@@ -1,6 +1,6 @@
-# Indian Market Intelligence Report Pipeline
+# Bharat Market Pulse
 
-A self-documenting Python pipeline to convert a portfolio screenshot into a daily **Indian Market Intelligence Report**.
+A self-documenting Python pipeline to convert a portfolio screenshot into a daily **Bharat Market Pulse report**.
 
 ## Phases
 
