@@ -36,3 +36,26 @@ python report_pipeline.py
 
 - No price targets are generated.
 - Action output is strictly `Buy/Hold/Sell` (with divergence annotation where applicable).
+
+
+## Phase 2.1 Hardening
+
+Added:
+- `.env` driven configuration (`config.py`)
+- Unit tests (`tests/`) using `pytest`
+- Scheduler sample (`scheduler_example.cron`)
+- Multi-format report exports (`.md`, `.csv`, `.json`)
+- Telegram digest formatter (`telegram_formatter.py`)
+
+## Testing
+
+```bash
+pytest -q
+```
+
+## Environment file
+
+```bash
+cp .env.example .env
+# then fill API keys as needed
+```

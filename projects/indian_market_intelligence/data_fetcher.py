@@ -10,6 +10,8 @@ from typing import Callable, Dict, Iterable, List, Optional
 
 import requests
 
+from config import get_settings
+
 
 TWITTER_PILLARS = [
     "deepakshenoy",      # Macro
@@ -101,7 +103,7 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
         Requires X API bearer token in `X_BEARER_TOKEN` and a valid
         API tier with recent tweet read access.
     """
-    bearer_token = os.getenv("X_BEARER_TOKEN", "")
+    bearer_token = get_settings().x_bearer_token
     if not bearer_token:
         return []
 
@@ -205,7 +207,7 @@ def fetch_news_items(query: str = "India stock market", page_size: int = 20) -> 
     Notes:
         Requires NEWS_API_KEY environment variable.
     """
-    api_key = os.getenv("NEWS_API_KEY", "")
+    api_key = get_settings().news_api_key
     if not api_key:
         return []
 

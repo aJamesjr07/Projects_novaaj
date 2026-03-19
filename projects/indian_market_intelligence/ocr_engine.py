@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-import easyocr
-
 ERROR_LOG_PATH = Path(__file__).resolve().parent / "error_log.txt"
 
 
@@ -87,6 +85,8 @@ def run_ocr(image_path: str, min_confidence: float = 0.60) -> List[Holding]:
     try:
         if not img_file.exists():
             raise ImageNotFoundError(f"Image not found: {img_file}")
+
+        import easyocr
 
         reader = easyocr.Reader(["en"], gpu=False)
         results = reader.readtext(str(img_file))
