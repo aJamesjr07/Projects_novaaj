@@ -60,6 +60,18 @@ def _looks_like_ticker(text: str) -> bool:
 def _normalize_possible_symbol(text: str) -> str | None:
     """Normalize OCR text to known ticker symbols where possible."""
     t = text.strip().upper()
+
+    # Deterministic mappings for known portfolio patterns / OCR artifacts.
+    exact_map = {
+        "NIFTYBEES": "NIFTYBEES",
+        "ICICIPHARM": "ICICIPHARM",
+        "GOLDBEES": "GOLDBEES",
+        "HIGHWAY": "HIGHWAY",
+        "BEES": "GOLDBEES",  # In this UI, standalone BEES usually belongs to GoldBeES line.
+    }
+    if t in exact_map:
+        return exact_map[t]
+
     if _looks_like_ticker(t):
         return t
     if "BEE" in t and "GOLD" in t:
