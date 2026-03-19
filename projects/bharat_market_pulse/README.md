@@ -55,6 +55,7 @@ Added:
 - Citation-aware analysis per ticker
 - Confidence score per action row
 - Layman-friendly report text (`In Simple Words` section)
+- Hybrid screenshot extraction (EasyOCR + optional Tesseract + consensus row parsing)
 
 ### Report sections now
 
