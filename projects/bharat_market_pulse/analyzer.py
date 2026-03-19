@@ -114,7 +114,10 @@ def _is_low_signal_post(text: str) -> bool:
         r"bi-?weekly advice thread",
         r"daily discussion",
         r"all your personal queries",
-        r"dont act smart",
+        r"don['’]?t act smart",
+        r"conspiracy theory",
+        r"meme",
+        r"shitpost",
     ]
     return any(re.search(p, t) for p in generic_patterns)
 
@@ -267,10 +270,19 @@ def _rank_relevant_evidence(ticker: str, graph: Sequence[RelationEvidence], limi
 
 
 def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[RelationEvidence]) -> str:
-    evidence = _rank_relevant_evidence(ticker, graph, limit=2)
+    evidence = _rank_relevant_evidence(ticker, graph, limit=3)
     if evidence:
-        lines = [f"{e.reason} ({e.source})" for e in evidence]
-        return "; ".join(lines)
+        unique_lines: list[str] = []
+        seen: set[str] = set()
+        for e in evidence:
+            key = f"{e.entity}:{e.reason}"
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_lines.append(f"{e.reason} ({e.source})")
+            if len(unique_lines) >= 2:
+                break
+        return "; ".join(unique_lines)
 
     # fallback to old deterministic sector map if no graph evidence
     t = ticker.upper()
@@ -341,12 +353,20 @@ def _layman_summary(ticker: str, action: str, sentiment: str, context: str) -> s
 def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str]:
     high_impact_terms = {"fed", "rate", "inflation", "crude", "oil", "bond", "yields", "dollar", "war"}
 
-    candidates = [
-        i for i in items
-        if (i.metadata.get("pillar") == "global_event"
-        or _contains_any(i.text.lower(), GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS))
-        and not _is_low_signal_post(i.text)
-    ]
+    candidates: List[FeedItem] = []
+    for i in items:
+        text = i.text.lower()
+        if _is_low_signal_post(i.text):
+            continue
+
+        has_macro_terms = _contains_any(text, GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS)
+        is_global_pillar = i.metadata.get("pillar") == "global_event"
+
+        # Prefer official/news; accept social only when macro terms are explicit.
+        if i.source in {"official", "news"} and (is_global_pillar or has_macro_terms):
+            candidates.append(i)
+        elif i.source in {"reddit", "twitter"} and has_macro_terms:
+            candidates.append(i)
 
     def _score(item: FeedItem) -> float:
         rel = float(item.metadata.get("reliability", "0.5"))
@@ -356,10 +376,15 @@ def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str
 
     ranked = sorted(candidates, key=_score, reverse=True)
     out: List[str] = []
-    for item in ranked[:limit]:
+    seen_headlines: set[str] = set()
+    for item in ranked:
         headline = item.text.split("\n", 1)[0].strip()
         if not headline:
             continue
+        key = headline.lower()
+        if key in seen_headlines:
+            continue
+        seen_headlines.add(key)
 
         text = item.text.lower()
         level = "High" if any(t in text for t in high_impact_terms) else "Medium"
@@ -373,6 +398,8 @@ def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str
             why = "Could influence overall market sentiment."
 
         out.append(f"[{level}] {headline} ({item.author}) — {why} | Source: {item.url}")
+        if len(out) >= limit:
+            break
     return out
 
 
@@ -410,6 +437,8 @@ def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]
         for ev in rel_evidence[:3]:
             if ev.url:
                 row_citations.append(f"{ev.source} - {ev.url}")
+        # de-duplicate citations while preserving order
+        row_citations = list(dict.fromkeys(row_citations))
         if not row_citations:
             row_citations = _select_citations(items)
 
