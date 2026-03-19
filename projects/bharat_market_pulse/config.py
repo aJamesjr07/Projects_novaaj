@@ -25,6 +25,8 @@ class Settings:
         news_api_key: News API key.
         market_report_image_path: Path to input portfolio screenshot.
         report_output_dir: Directory for generated report artifacts.
+        use_agent_extract_first: Use agent-extracted local JSON before other methods.
+        agent_extract_file_path: JSON file path containing extracted holdings.
         use_llm_first: Enable LLM-first extraction before OCR fallback.
         llm_api_key: API key for vision model provider.
         llm_model: Vision model id.
@@ -36,6 +38,8 @@ class Settings:
     news_api_key: str
     market_report_image_path: str
     report_output_dir: Path
+    use_agent_extract_first: bool
+    agent_extract_file_path: str
     use_llm_first: bool
     llm_api_key: str
     llm_model: str
@@ -50,12 +54,15 @@ def get_settings() -> Settings:
         Settings dataclass populated from .env or process environment.
     """
     use_llm_first = os.getenv("USE_LLM_FIRST", "true").strip().lower() in {"1", "true", "yes", "on"}
+    use_agent_extract_first = os.getenv("USE_AGENT_EXTRACT_FIRST", "true").strip().lower() in {"1", "true", "yes", "on"}
 
     return Settings(
         x_bearer_token=os.getenv("X_BEARER_TOKEN", ""),
         news_api_key=os.getenv("NEWS_API_KEY", ""),
         market_report_image_path=os.getenv("MARKET_REPORT_IMAGE_PATH", "portfolio.png"),
         report_output_dir=Path(os.getenv("REPORT_OUTPUT_DIR", "./reports")),
+        use_agent_extract_first=use_agent_extract_first,
+        agent_extract_file_path=os.getenv("AGENT_EXTRACT_FILE_PATH", "./agent_extracted_holdings.json"),
         use_llm_first=use_llm_first,
         llm_api_key=os.getenv("LLM_API_KEY", ""),
         llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),

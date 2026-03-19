@@ -27,7 +27,7 @@ python report_pipeline.py
 
 ## Reliability Guards
 
-- Extraction now runs **LLM-first** (vision parse) and **falls back to OCR** if unavailable.
+- Extraction now runs **Agent JSON first** (assistant-generated local holdings file), then **LLM**, then **OCR fallback**.
 - OCR errors and low-confidence conditions are logged to `error_log.txt`.
 - API fetching uses exponential backoff for rate limits (HTTP 429).
 - If data is insufficient, output includes:

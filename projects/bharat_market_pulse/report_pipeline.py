@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
+from agent_extractor import load_agent_extracted_holdings
 from analyzer import AnalysisBundle, AnalysisRow, build_analysis_bundle
 from config import get_settings
 from data_fetcher import fetch_all_sources
@@ -81,13 +82,18 @@ def render_report(bundle: AnalysisBundle) -> str:
 
 
 def main() -> None:
-    """Run full LLM-first -> OCR fallback -> Fetch -> Analyze -> Report pipeline."""
+    """Run agent-json -> LLM -> OCR extraction, then fetch/analyze/report."""
     settings = get_settings()
     image_path = settings.market_report_image_path
 
     holdings: List[Holding] = []
 
-    if settings.use_llm_first:
+    if settings.use_agent_extract_first:
+        holdings = load_agent_extracted_holdings(settings.agent_extract_file_path)
+        if holdings:
+            print(f"Agent JSON extraction loaded: {len(holdings)} holdings.")
+
+    if not holdings and settings.use_llm_first:
         try:
             llm_settings = LLMExtractorSettings(
                 api_key=settings.llm_api_key,
@@ -98,7 +104,6 @@ def main() -> None:
             holdings = run_llm_extraction(image_path, llm_settings)
             print(f"LLM extraction succeeded: {len(holdings)} holdings parsed.")
         except Exception as exc:
-            llm_error = str(exc)
             print(f"LLM extraction unavailable/failed, falling back to OCR ({exc})")
 
     if not holdings:

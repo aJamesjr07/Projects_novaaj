@@ -1,0 +1,10 @@
+{
+  "holdings": [
+    {"ticker": "TATAGOLD", "quantity": 98, "confidence": 0.94},
+    {"ticker": "GOLDBEES", "quantity": 159, "confidence": 0.93},
+    {"ticker": "SILVERBEES", "quantity": 42, "confidence": 0.92},
+    {"ticker": "TATSILV", "quantity": 67, "confidence": 0.90},
+    {"ticker": "BEL", "quantity": 22, "confidence": 0.91},
+    {"ticker": "PARAS", "quantity": 3, "confidence": 0.88}
+  ]
+}
