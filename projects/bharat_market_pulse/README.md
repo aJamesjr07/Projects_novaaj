@@ -58,6 +58,7 @@ Added:
 - Layman-friendly report text (`In Simple Words` section)
 - Hybrid screenshot extraction (EasyOCR + optional Tesseract + consensus row parsing)
 - Phase B: lightweight entity-relation graph for ticker-specific impact mapping
+- Phase B.1: India-specific entities (RBI/rupee/import-export/order-book) + stricter per-ticker relevance scoring
 
 ### Report sections now
 

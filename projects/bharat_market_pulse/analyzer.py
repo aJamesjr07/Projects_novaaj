@@ -22,6 +22,8 @@ SILVER_TICKERS = {"SILVERBEES", "TATSILV"}
 METAL_TICKERS = {"HINDALCO", "HINDCOPPER", "VEDL", "NALCO"}
 ENERGY_TICKERS = {"IOC", "BPCL", "OIL", "MRPL"}
 DEFENCE_TICKERS = {"BEL", "PARAS"}
+IMPORT_SENSITIVE_TICKERS = {"IOC", "BPCL", "MRPL", "OIL"}
+EXPORT_SENSITIVE_TICKERS = {"TCS", "INFY", "WIPRO", "HCLTECH", "TECHM"}
 
 GLOBAL_BEARISH_KEYWORDS = {
     "fed hike",
@@ -146,13 +148,17 @@ def _ticker_entities(ticker: str) -> set[str]:
     if t in ENERGY_TICKERS:
         entities |= {"oil", "crude", "energy", "refining"}
     if t in DEFENCE_TICKERS:
-        entities |= {"defence", "government_orders", "capex"}
+        entities |= {"defence", "government_orders", "capex", "order_book"}
     if t in DEFENSIVE_TICKERS:
         entities |= {"pharma", "defensive"}
     if t in INDIA_IT_TICKERS:
-        entities |= {"it_services", "usd", "exports"}
+        entities |= {"it_services", "usd", "exports", "rupee"}
     if t in BANKING_TICKERS:
-        entities |= {"rates", "liquidity", "credit"}
+        entities |= {"rates", "liquidity", "credit", "rbi_policy"}
+    if t in IMPORT_SENSITIVE_TICKERS:
+        entities |= {"imports", "rupee", "oil"}
+    if t in EXPORT_SENSITIVE_TICKERS:
+        entities |= {"exports", "rupee", "usd"}
     return entities
 
 
@@ -167,9 +173,14 @@ def _extract_entity_relations(items: Sequence[FeedItem]) -> list[RelationEvidenc
         ("silver", {"silver", "silverbees", "industrial metal"}, "volatile_on_risk_shift", "neutral", "Silver reacts to both risk sentiment and industrial demand."),
         ("base_metals", {"aluminium", "aluminum", "copper", "metal prices", "lme"}, "sensitive_to_growth_cycle", "neutral", "Base metals track global growth and China demand cues."),
         ("oil", {"crude", "oil", "brent", "wti"}, "drives_energy_margin_risk", "bearish", "Rising crude can pressure refiners/OMCs on margin timing."),
-        ("defence", {"defence", "defense", "order win", "ministry of defence", "contract"}, "supported_by_order_flow", "bullish", "Order inflows can support defence names."),
+        ("defence", {"defence", "defense", "order win", "ministry of defence", "contract", "defence deal"}, "supported_by_order_flow", "bullish", "Order inflows can support defence names."),
+        ("order_book", {"order book", "order inflow", "new order", "contract award", "order pipeline"}, "signals_revenue_visibility", "bullish", "Improving order book can improve near-term revenue visibility."),
         ("rates", {"fed", "rate", "bond yield", "yields"}, "impacts_risk_appetite", "bearish", "Higher rates/yields can reduce equity risk appetite."),
-        ("usd", {"dollar", "dxy", "rupee", "inr"}, "fx_sensitivity", "neutral", "Currency moves can shift import/export profitability."),
+        ("rbi_policy", {"rbi", "repo", "reverse repo", "mpc", "policy rate"}, "domestic_liquidity_signal", "neutral", "RBI policy cues influence domestic liquidity and borrowing costs."),
+        ("usd", {"dollar", "dxy"}, "fx_sensitivity", "neutral", "Dollar moves can shift global risk and EM flows."),
+        ("rupee", {"rupee", "inr", "usd/inr", "forex"}, "import_export_cost_shift", "neutral", "INR movement affects importers and exporters differently."),
+        ("imports", {"import bill", "import cost", "landed cost"}, "cost_pressure_channel", "bearish", "Higher import costs can pressure margins for import-heavy businesses."),
+        ("exports", {"export demand", "deal pipeline", "overseas demand", "client spending"}, "revenue_support_channel", "bullish", "Improving export demand can support earnings momentum."),
         ("pharma", {"fda", "usfda", "drug", "formulation"}, "defensive_resilience", "bullish", "Pharma can hold relatively better in uncertain phases."),
         ("capex", {"capex", "infrastructure", "government spending"}, "supports_domestic_cyclicals", "bullish", "Domestic capex cycle supports industrial demand."),
     ]
@@ -194,11 +205,44 @@ def _extract_entity_relations(items: Sequence[FeedItem]) -> list[RelationEvidenc
     return out
 
 
+def _evidence_relevance(ticker: str, ev: RelationEvidence) -> float:
+    """Score evidence relevance for a ticker using entity + textual cues."""
+    t = ticker.upper()
+    score = ev.reliability
+
+    entities = _ticker_entities(t)
+    if ev.entity in entities:
+        score += 0.35
+
+    text = (ev.reason + " " + ev.source).lower()
+
+    # Sector-sensitive relevance boosts.
+    if t in ENERGY_TICKERS and ev.entity in {"oil", "imports", "rupee"}:
+        score += 0.25
+    if t in METAL_TICKERS and ev.entity in {"base_metals", "capex"}:
+        score += 0.25
+    if t in DEFENCE_TICKERS and ev.entity in {"defence", "order_book", "capex"}:
+        score += 0.3
+    if t in INDIA_IT_TICKERS and ev.entity in {"usd", "rupee", "exports", "rates"}:
+        score += 0.25
+    if t in GOLD_TICKERS and ev.entity == "gold":
+        score += 0.3
+    if t in SILVER_TICKERS and ev.entity == "silver":
+        score += 0.3
+
+    # Mild penalty for generic non-overlapping evidence.
+    if ev.entity not in entities:
+        score -= 0.15
+
+    return max(0.0, min(score, 1.5))
+
+
 def _rank_relevant_evidence(ticker: str, graph: Sequence[RelationEvidence], limit: int = 2) -> list[RelationEvidence]:
-    entities = _ticker_entities(ticker)
-    matches = [g for g in graph if g.entity in entities]
-    matches.sort(key=lambda x: x.reliability, reverse=True)
-    return matches[:limit]
+    scored = [(g, _evidence_relevance(ticker, g)) for g in graph]
+    # Stricter gating: discard weakly related evidence.
+    filtered = [(g, s) for g, s in scored if s >= 0.72]
+    filtered.sort(key=lambda x: x[1], reverse=True)
+    return [g for g, _s in filtered[:limit]]
 
 
 def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[RelationEvidence]) -> str:
