@@ -57,6 +57,7 @@ Added:
 - Confidence score per action row
 - Layman-friendly report text (`In Simple Words` section)
 - Hybrid screenshot extraction (EasyOCR + optional Tesseract + consensus row parsing)
+- Phase B: lightweight entity-relation graph for ticker-specific impact mapping
 
 ### Report sections now
 
