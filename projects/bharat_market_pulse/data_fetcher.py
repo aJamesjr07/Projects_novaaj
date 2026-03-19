@@ -6,6 +6,7 @@ import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import re
 from typing import Callable, Dict, List
 
 import requests
@@ -26,10 +27,10 @@ REDDIT_PILLARS = [
 ]
 
 SOURCE_RELIABILITY = {
-    "official": 0.95,
-    "news": 0.78,
-    "twitter": 0.62,
-    "reddit": 0.52,
+    "official": 0.96,
+    "news": 0.82,
+    "twitter": 0.50,
+    "reddit": 0.38,
 }
 
 
@@ -95,6 +96,22 @@ def with_exponential_backoff(
 def _utc_now() -> str:
     """Return current UTC timestamp as ISO string."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_low_quality_news_text(text: str) -> bool:
+    """Filter generic/ad-like/low-information headlines."""
+    t = (text or "").strip().lower()
+    if len(t) < 35:
+        return True
+    noisy_patterns = [
+        r"advice thread",
+        r"daily discussion",
+        r"click here",
+        r"sponsored",
+        r"subscribe now",
+        r"market wrap(?!.*(nifty|sensex|rbi|policy))",
+    ]
+    return any(re.search(p, t) for p in noisy_patterns)
 
 
 def _make_item(source: str, author: str, text: str, url: str, created_at: str, **metadata: str) -> FeedItem:
@@ -207,7 +224,7 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
     return items
 
 
-def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE", page_size: int = 20) -> List[FeedItem]:
+def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE OR earnings OR results", page_size: int = 20) -> List[FeedItem]:
     """Fetch market-relevant news items from NewsAPI.
 
     Args:
@@ -221,9 +238,14 @@ def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE", pag
     if not api_key:
         return []
 
+    trusted_domains = (
+        "economictimes.indiatimes.com,livemint.com,business-standard.com,moneycontrol.com,"
+        "reuters.com,bloomberg.com,cnbctv18.com"
+    )
     endpoint = (
         "https://newsapi.org/v2/everything"
-        f"?q={query}&language=en&pageSize={page_size}&sortBy=publishedAt&apiKey={api_key}"
+        f"?q={query}&language=en&pageSize={page_size}&sortBy=publishedAt"
+        f"&domains={trusted_domains}&apiKey={api_key}"
     )
 
     resp = with_exponential_backoff(lambda: requests.get(endpoint, timeout=20))
@@ -234,7 +256,7 @@ def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE", pag
         title = article.get("title", "")
         description = article.get("description", "")
         text = (title + "\n" + (description or "")).strip()
-        if not text:
+        if not text or _is_low_quality_news_text(text):
             continue
         items.append(
             _make_item(
@@ -308,10 +330,12 @@ def fetch_global_event_items(page_size: int = 10) -> List[FeedItem]:
     if not api_key:
         return []
 
-    query = 'Fed OR "US inflation" OR "US jobs" OR "crude oil" OR "dollar index" OR "bond yields"'
+    query = 'Fed OR "US inflation" OR "US jobs" OR "crude oil" OR "dollar index" OR "bond yields" OR "US treasury yields"'
+    trusted_domains = "reuters.com,bloomberg.com,cnbc.com,ft.com,wsj.com"
     endpoint = (
         "https://newsapi.org/v2/everything"
-        f"?q={query}&language=en&pageSize={page_size}&sortBy=publishedAt&apiKey={api_key}"
+        f"?q={query}&language=en&pageSize={page_size}&sortBy=publishedAt"
+        f"&domains={trusted_domains}&apiKey={api_key}"
     )
 
     resp = with_exponential_backoff(lambda: requests.get(endpoint, timeout=20))
@@ -322,7 +346,7 @@ def fetch_global_event_items(page_size: int = 10) -> List[FeedItem]:
         title = article.get("title", "")
         description = article.get("description", "")
         text = (title + "\n" + (description or "")).strip()
-        if not text:
+        if not text or _is_low_quality_news_text(text):
             continue
         items.append(
             _make_item(
@@ -342,15 +366,24 @@ def fetch_global_event_items(page_size: int = 10) -> List[FeedItem]:
 def fetch_all_sources() -> List[FeedItem]:
     """Fetch and combine all configured social, news, and official sources.
 
+    Preference order: official/news first, social as supplemental context.
+
     Returns:
         Unified list of FeedItem objects from active sources.
     """
     items: List[FeedItem] = []
-    items.extend(fetch_official_rss_items())
-    items.extend(fetch_news_items())
-    items.extend(fetch_global_event_items())
-    items.extend(fetch_twitter_items())
-    items.extend(fetch_reddit_items())
+    official = fetch_official_rss_items()
+    news = fetch_news_items(page_size=30)
+    global_news = fetch_global_event_items(page_size=15)
+    twitter = fetch_twitter_items(limit_per_account=2)
+    reddit = fetch_reddit_items(limit_per_subreddit=2)
+
+    items.extend(official)
+    items.extend(news)
+    items.extend(global_news)
+    items.extend(twitter)
+    # Keep reddit as minor signal only.
+    items.extend(reddit[:4])
     return items
 
 

@@ -211,7 +211,9 @@ def _extract_entity_relations(items: Sequence[FeedItem]) -> list[RelationEvidenc
 
         rel = float(item.metadata.get("reliability", "0.5"))
         if item.source == "reddit":
-            rel = max(0.35, rel - 0.08)
+            rel = max(0.25, rel - 0.15)
+        elif item.source == "twitter":
+            rel = max(0.30, rel - 0.10)
 
         for entity, terms, relation, polarity, reason in patterns:
             if any(term in text for term in terms):
@@ -304,9 +306,9 @@ def classify_action(global_score: int, india_score: int, graph_evidence: Sequenc
 
     B.2 calibration: avoid all-Buy bias by requiring stronger confirmation.
     """
-    bullish = sum(1 for e in graph_evidence if e.polarity == "bullish")
-    bearish = sum(1 for e in graph_evidence if e.polarity == "bearish")
-    neutral = sum(1 for e in graph_evidence if e.polarity == "neutral")
+    bullish = sum(e.reliability for e in graph_evidence if e.polarity == "bullish")
+    bearish = sum(e.reliability for e in graph_evidence if e.polarity == "bearish")
+    neutral = sum(e.reliability for e in graph_evidence if e.polarity == "neutral")
 
     # Strongly risk-off backdrop + bearish evidence.
     if global_score <= -2 and india_score <= 0 and bearish >= bullish:
@@ -326,11 +328,18 @@ def classify_action(global_score: int, india_score: int, graph_evidence: Sequenc
 
 
 def _select_citations(items: Sequence[FeedItem], limit: int = 3) -> List[str]:
-    ranked = sorted(items, key=lambda x: float(x.metadata.get("reliability", "0.5")), reverse=True)
+    """Prefer official/news citations; use social only as fallback."""
+    preferred = [i for i in items if i.source in {"official", "news"}]
+    pool = preferred if preferred else list(items)
+    ranked = sorted(pool, key=lambda x: float(x.metadata.get("reliability", "0.5")), reverse=True)
+
     citations: List[str] = []
-    for item in ranked[:limit]:
-        if item.url:
-            citations.append(f"{item.author} ({item.source}) - {item.url}")
+    for item in ranked:
+        if not item.url:
+            continue
+        citations.append(f"{item.author} ({item.source}) - {item.url}")
+        if len(citations) >= limit:
+            break
     return citations
 
 
@@ -362,10 +371,8 @@ def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str
         has_macro_terms = _contains_any(text, GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS)
         is_global_pillar = i.metadata.get("pillar") == "global_event"
 
-        # Prefer official/news; accept social only when macro terms are explicit.
+        # For global events, keep only official/news quality sources.
         if i.source in {"official", "news"} and (is_global_pillar or has_macro_terms):
-            candidates.append(i)
-        elif i.source in {"reddit", "twitter"} and has_macro_terms:
             candidates.append(i)
 
     def _score(item: FeedItem) -> float:

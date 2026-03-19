@@ -59,6 +59,7 @@ Added:
 - Hybrid screenshot extraction (EasyOCR + optional Tesseract + consensus row parsing)
 - Phase B: lightweight entity-relation graph for ticker-specific impact mapping
 - Phase B.1: India-specific entities (RBI/rupee/import-export/order-book) + stricter per-ticker relevance scoring
+- B.3 hardening: social signal downweighting + trusted-domain news filtering
 
 ### Report sections now
 
