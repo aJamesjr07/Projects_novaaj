@@ -94,7 +94,7 @@ def extract_holdings_from_text(text: str, confidence: float) -> List[Holding]:
     return holdings
 
 
-def extract_holdings_from_lines(lines: List[tuple[str, float]]) -> List[Holding]:
+def extract_holdings_from_lines(lines: List[tuple[str, float]], window: int = 5) -> List[Holding]:
     """Extract holdings from OCR lines using adjacency heuristics.
 
     Args:
@@ -111,7 +111,7 @@ def extract_holdings_from_lines(lines: List[tuple[str, float]]) -> List[Holding]
         if symbol:
             qty = None
             qty_conf = conf
-            for j in range(i + 1, min(i + 5, len(lines))):
+            for j in range(i + 1, min(i + window, len(lines))):
                 m = SHARES_PATTERN.search(lines[j][0])
                 if m:
                     qty = int(m.group(1))
@@ -154,7 +154,9 @@ def run_ocr(image_path: str, min_confidence: float = 0.60) -> List[Holding]:
             raise LowConfidenceScoreError("No OCR text detected from image.")
 
         valid_blocks = [(text, conf) for _, text, conf in results if conf >= min_confidence]
-        if not valid_blocks:
+        relaxed_blocks = [(text, conf) for _, text, conf in results if conf >= 0.45]
+
+        if not valid_blocks and not relaxed_blocks:
             raise LowConfidenceScoreError(
                 f"All OCR confidence scores below threshold {min_confidence:.2f}."
             )
@@ -163,8 +165,9 @@ def run_ocr(image_path: str, min_confidence: float = 0.60) -> List[Holding]:
         for text, conf in valid_blocks:
             holdings.extend(extract_holdings_from_text(text=text, confidence=float(conf)))
 
+        # Broker-layout fallback: ticker line + nearby "X shares" line may have lower confidence.
         if not holdings:
-            holdings = extract_holdings_from_lines(valid_blocks)
+            holdings = extract_holdings_from_lines(relaxed_blocks, window=7)
 
         # Deduplicate by ticker, keep first parsed quantity.
         deduped: List[Holding] = []
