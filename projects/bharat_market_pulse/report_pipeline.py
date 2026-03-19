@@ -10,6 +10,7 @@ from analyzer import AnalysisBundle, AnalysisRow, build_analysis_bundle
 from config import get_settings
 from data_fetcher import fetch_all_sources
 from export_utils import ensure_output_dir, export_rows_csv, export_rows_json
+from llm_extractor import LLMExtractorSettings, run_llm_extraction
 from ocr_engine import Holding, OCRError, run_ocr
 from telegram_formatter import format_telegram_digest
 
@@ -80,15 +81,33 @@ def render_report(bundle: AnalysisBundle) -> str:
 
 
 def main() -> None:
-    """Run full OCR -> Fetch -> Analyze -> Report pipeline."""
+    """Run full LLM-first -> OCR fallback -> Fetch -> Analyze -> Report pipeline."""
     settings = get_settings()
     image_path = settings.market_report_image_path
 
-    try:
-        holdings: List[Holding] = run_ocr(image_path)
-    except OCRError as exc:
-        print(f"Data Deficiency Warning: OCR stage failed ({exc})")
-        holdings = []
+    holdings: List[Holding] = []
+
+    if settings.use_llm_first:
+        try:
+            llm_settings = LLMExtractorSettings(
+                api_key=settings.llm_api_key,
+                model=settings.llm_model,
+                base_url=settings.llm_base_url,
+                timeout_seconds=settings.llm_timeout_seconds,
+            )
+            holdings = run_llm_extraction(image_path, llm_settings)
+            print(f"LLM extraction succeeded: {len(holdings)} holdings parsed.")
+        except Exception as exc:
+            llm_error = str(exc)
+            print(f"LLM extraction unavailable/failed, falling back to OCR ({exc})")
+
+    if not holdings:
+        try:
+            holdings = run_ocr(image_path)
+            print(f"OCR fallback parsed: {len(holdings)} holdings.")
+        except OCRError as exc:
+            print(f"Data Deficiency Warning: OCR stage failed ({exc})")
+            holdings = []
 
     feed_items = fetch_all_sources()
     bundle = build_analysis_bundle(holdings=holdings, items=feed_items)
