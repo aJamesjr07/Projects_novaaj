@@ -1,2 +1,0 @@
-# Run daily at 6:30 PM IST
-30 18 * * 1-5 cd /home/ajjames/.openclaw/workspace/projects/indian_market_intelligence && /usr/bin/env bash -lc 'source .venv/bin/activate && python report_pipeline.py >> reports/scheduler.log 2>&1'

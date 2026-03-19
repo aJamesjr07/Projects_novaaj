@@ -1,0 +1,5 @@
+2026-03-19 17:29:35,571 | ERROR | OCR validation error.
+Traceback (most recent call last):
+  File "/home/ajjames/.openclaw/workspace/projects/bharat_market_pulse/ocr_engine.py", line 87, in run_ocr
+    raise ImageNotFoundError(f"Image not found: {img_file}")
+ocr_engine.ImageNotFoundError: Image not found: portfolio.png
