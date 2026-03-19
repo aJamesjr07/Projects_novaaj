@@ -10,7 +10,8 @@ _Learn about the person you're helping. Update this as you go._
 
 ## Context
 
-_(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)_
+- Bharat Market Pulse project updates are expected in Telegram group `Portfolio analysis` (`chat_id: -5038109702`) on a fixed weekday schedule.
+- Locked cadence (IST, Mon-Fri): 08:45 pre-open, 12:30 mid-session, 15:40 closing + next-day bias.
 
 ---
 
