@@ -46,22 +46,69 @@ class Holding:
 
 
 TICKER_QTY_PATTERN = re.compile(r"\b([A-Z][A-Z0-9&\-]{1,14})\b\s*(?:x|qty|quantity|shares|:)?\s*(\d{1,7})\b", re.IGNORECASE)
+SHARES_PATTERN = re.compile(r"\b(\d{1,7})\s*shares?\b", re.IGNORECASE)
+
+
+def _looks_like_ticker(text: str) -> bool:
+    """Return True if text appears to be a ticker-like token."""
+    t = text.strip().upper()
+    if t in {"STOCKS", "HOLDINGS", "POSITIONS", "ORDERS", "SORT", "CURRENT", "INVESTED", "RETURNS"}:
+        return False
+    return bool(re.fullmatch(r"[A-Z][A-Z0-9&\-]{2,14}", t))
+
+
+def _normalize_possible_symbol(text: str) -> str | None:
+    """Normalize OCR text to known ticker symbols where possible."""
+    t = text.strip().upper()
+    if _looks_like_ticker(t):
+        return t
+    if "BEE" in t and "GOLD" in t:
+        return "GOLDBEES"
+    if "NIFTY" in t and "BEE" in t:
+        return "NIFTYBEES"
+    if "ICICIPHARM" in t:
+        return "ICICIPHARM"
+    if "HIGHWAY" in t:
+        return "HIGHWAY"
+    return None
 
 
 def extract_holdings_from_text(text: str, confidence: float) -> List[Holding]:
-    """Extract ticker/quantity pairs from OCR text.
-
-    Args:
-        text: OCR text block.
-        confidence: Confidence score for this OCR text block.
-
-    Returns:
-        List of parsed Holding objects.
-    """
+    """Extract inline ticker/quantity pairs from a single OCR text block."""
     holdings: List[Holding] = []
     for match in TICKER_QTY_PATTERN.finditer(text.upper()):
         ticker, qty = match.groups()
         holdings.append(Holding(ticker=ticker, quantity=int(qty), confidence=confidence))
+    return holdings
+
+
+def extract_holdings_from_lines(lines: List[tuple[str, float]]) -> List[Holding]:
+    """Extract holdings from OCR lines using adjacency heuristics.
+
+    Args:
+        lines: Ordered list of (text, confidence) OCR lines.
+
+    Returns:
+        List of parsed holdings.
+    """
+    holdings: List[Holding] = []
+    i = 0
+    while i < len(lines):
+        text, conf = lines[i]
+        symbol = _normalize_possible_symbol(text)
+        if symbol:
+            qty = None
+            qty_conf = conf
+            for j in range(i + 1, min(i + 5, len(lines))):
+                m = SHARES_PATTERN.search(lines[j][0])
+                if m:
+                    qty = int(m.group(1))
+                    qty_conf = min(conf, lines[j][1])
+                    break
+            if qty is not None:
+                holdings.append(Holding(ticker=symbol, quantity=qty, confidence=float(qty_conf)))
+                i = j
+        i += 1
     return holdings
 
 
@@ -104,7 +151,19 @@ def run_ocr(image_path: str, min_confidence: float = 0.60) -> List[Holding]:
         for text, conf in valid_blocks:
             holdings.extend(extract_holdings_from_text(text=text, confidence=float(conf)))
 
-        return holdings
+        if not holdings:
+            holdings = extract_holdings_from_lines(valid_blocks)
+
+        # Deduplicate by ticker, keep first parsed quantity.
+        deduped: List[Holding] = []
+        seen = set()
+        for h in holdings:
+            if h.ticker in seen:
+                continue
+            seen.add(h.ticker)
+            deduped.append(h)
+
+        return deduped
 
     except (ImageNotFoundError, LowConfidenceScoreError):
         logging.exception("OCR validation error.")
