@@ -8,7 +8,7 @@ Phase B upgrade:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, List, Sequence
+from typing import Dict, Iterable, List, Sequence
 import re
 
 from data_fetcher import FeedItem
@@ -25,6 +25,23 @@ ENERGY_TICKERS = {"IOC", "BPCL", "OIL", "MRPL"}
 DEFENCE_TICKERS = {"BEL", "PARAS"}
 IMPORT_SENSITIVE_TICKERS = {"IOC", "BPCL", "MRPL", "OIL"}
 EXPORT_SENSITIVE_TICKERS = {"TCS", "INFY", "WIPRO", "HCLTECH", "TECHM"}
+
+TICKER_ALIASES: Dict[str, set[str]] = {
+    "BEL": {"bel", "bharat electronics"},
+    "PARAS": {"paras", "paras defence", "paras defense"},
+    "HINDALCO": {"hindalco"},
+    "HINDCOPPER": {"hindustan copper", "hind copper"},
+    "IOC": {"ioc", "indian oil"},
+    "BPCL": {"bpcl", "bharat petroleum"},
+    "OIL": {"oil india", "oil india ltd"},
+    "VEDL": {"vedanta", "vedl"},
+    "NALCO": {"nalco"},
+    "LAURUS": {"laurus", "laurus labs"},
+    "GOLDBEES": {"goldbees", "nippon india gold bees", "gold bees"},
+    "TATAGOLD": {"tatagold", "tata gold"},
+    "SILVERBEES": {"silverbees", "silver bees"},
+    "TATSILV": {"tatsilv", "tata silver"},
+}
 
 GLOBAL_BEARISH_KEYWORDS = {
     "fed hike",
@@ -100,6 +117,18 @@ class RelationEvidence:
     reliability: float
 
 
+@dataclass(frozen=True)
+class CompanyTrigger:
+    """Company-specific trusted trigger for action override."""
+
+    ticker: str
+    polarity: str  # bullish / bearish
+    reason: str
+    source: str
+    url: str
+    reliability: float
+
+
 def _contains_any(text: str, keywords: Iterable[str]) -> bool:
     t = text.lower()
     return any(k in t for k in keywords)
@@ -120,6 +149,49 @@ def _is_low_signal_post(text: str) -> bool:
         r"shitpost",
     ]
     return any(re.search(p, t) for p in generic_patterns)
+
+
+def _trusted_items(items: Sequence[FeedItem]) -> List[FeedItem]:
+    """Return only official/news items for high-quality decisions."""
+    return [i for i in items if i.source in {"official", "news"}]
+
+
+def _extract_company_triggers(items: Sequence[FeedItem]) -> List[CompanyTrigger]:
+    """Extract company-level bullish/bearish triggers from trusted sources only."""
+    trusted = _trusted_items(items)
+    out: List[CompanyTrigger] = []
+
+    bullish_terms = {"order win", "large order", "earnings beat", "guidance raised", "upgrade", "contract win"}
+    bearish_terms = {"earnings miss", "guidance cut", "downgrade", "penalty", "fraud", "pledge", "default"}
+
+    for item in trusted:
+        text = item.text.lower()
+        for ticker, aliases in TICKER_ALIASES.items():
+            if not any(a in text for a in aliases):
+                continue
+
+            polarity = ""
+            reason = ""
+            if any(t in text for t in bullish_terms):
+                polarity = "bullish"
+                reason = "Trusted company-level positive trigger detected."
+            elif any(t in text for t in bearish_terms):
+                polarity = "bearish"
+                reason = "Trusted company-level negative trigger detected."
+
+            if polarity:
+                out.append(
+                    CompanyTrigger(
+                        ticker=ticker,
+                        polarity=polarity,
+                        reason=reason,
+                        source=f"{item.author} ({item.source})",
+                        url=item.url,
+                        reliability=float(item.metadata.get("reliability", "0.5")),
+                    )
+                )
+
+    return out
 
 
 def _sentiment_labels(global_score: int, india_score: int) -> str:
@@ -263,8 +335,17 @@ def _evidence_relevance(ticker: str, ev: RelationEvidence) -> float:
     return max(0.0, min(score, 1.5))
 
 
-def _rank_relevant_evidence(ticker: str, graph: Sequence[RelationEvidence], limit: int = 2) -> list[RelationEvidence]:
-    scored = [(g, _evidence_relevance(ticker, g)) for g in graph]
+def _rank_relevant_evidence(
+    ticker: str,
+    graph: Sequence[RelationEvidence],
+    limit: int = 2,
+    trusted_only: bool = False,
+) -> list[RelationEvidence]:
+    pool = list(graph)
+    if trusted_only:
+        pool = [g for g in pool if "(official)" in g.source or "(news)" in g.source]
+
+    scored = [(g, _evidence_relevance(ticker, g)) for g in pool]
     # Stricter gating: discard weakly related evidence.
     filtered = [(g, s) for g, s in scored if s >= 0.72]
     filtered.sort(key=lambda x: x[1], reverse=True)
@@ -272,7 +353,7 @@ def _rank_relevant_evidence(ticker: str, graph: Sequence[RelationEvidence], limi
 
 
 def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[RelationEvidence]) -> str:
-    evidence = _rank_relevant_evidence(ticker, graph, limit=3)
+    evidence = _rank_relevant_evidence(ticker, graph, limit=3, trusted_only=True)
     if evidence:
         unique_lines: list[str] = []
         seen: set[str] = set()
@@ -301,7 +382,12 @@ def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[Relation
     return "No strong direct sector mapping from current global signals."
 
 
-def classify_action(global_score: int, india_score: int, graph_evidence: Sequence[RelationEvidence]) -> str:
+def classify_action(
+    global_score: int,
+    india_score: int,
+    graph_evidence: Sequence[RelationEvidence],
+    company_triggers: Sequence[CompanyTrigger],
+) -> str:
     """Classify action into Buy/Hold/Sell without price targets.
 
     B.2 calibration: avoid all-Buy bias by requiring stronger confirmation.
@@ -309,6 +395,15 @@ def classify_action(global_score: int, india_score: int, graph_evidence: Sequenc
     bullish = sum(e.reliability for e in graph_evidence if e.polarity == "bullish")
     bearish = sum(e.reliability for e in graph_evidence if e.polarity == "bearish")
     neutral = sum(e.reliability for e in graph_evidence if e.polarity == "neutral")
+
+    trig_bull = sum(t.reliability for t in company_triggers if t.polarity == "bullish")
+    trig_bear = sum(t.reliability for t in company_triggers if t.polarity == "bearish")
+
+    # Trusted company catalyst overrides.
+    if trig_bull >= 0.90 and trig_bull > trig_bear:
+        return "Buy"
+    if trig_bear >= 0.90 and trig_bear >= trig_bull:
+        return "Sell"
 
     # Strongly risk-off backdrop + bearish evidence.
     if global_score <= -2 and india_score <= 0 and bearish >= bullish:
@@ -433,17 +528,36 @@ def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]
     sentiment_label = _sentiment_labels(global_score, india_score)
 
     graph = _extract_entity_relations(items)
+    triggers = _extract_company_triggers(items)
 
     rows: List[AnalysisRow] = []
     for h in holdings:
         rel_evidence = _rank_relevant_evidence(h.ticker, graph, limit=3)
+        ticker_triggers = [t for t in triggers if t.ticker == h.ticker]
+
         context = infer_direct_impact(h.ticker, global_score, graph)
-        action = classify_action(global_score, india_score, rel_evidence)
+        if ticker_triggers:
+            top_trigger = sorted(ticker_triggers, key=lambda t: t.reliability, reverse=True)[0]
+            context = f"{context}; {top_trigger.reason} ({top_trigger.source})"
+
+        action = classify_action(global_score, india_score, rel_evidence, ticker_triggers)
 
         row_citations: List[str] = []
-        for ev in rel_evidence[:3]:
+        trusted_evidence = [e for e in rel_evidence if "(official)" in e.source or "(news)" in e.source]
+        evidence_for_citation = trusted_evidence if trusted_evidence else []
+
+        # Only include social citations when at least one trusted evidence exists (corroboration rule).
+        if trusted_evidence:
+            evidence_for_citation = rel_evidence[:3]
+
+        for ev in evidence_for_citation[:3]:
             if ev.url:
                 row_citations.append(f"{ev.source} - {ev.url}")
+
+        for trig in sorted(ticker_triggers, key=lambda t: t.reliability, reverse=True)[:2]:
+            if trig.url:
+                row_citations.append(f"{trig.source} - {trig.url}")
+
         # de-duplicate citations while preserving order
         row_citations = list(dict.fromkeys(row_citations))
         if not row_citations:
