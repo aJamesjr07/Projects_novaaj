@@ -81,6 +81,20 @@ This runs the report on weekdays:
 - 9:00 AM IST (before market open)
 - 3:45 PM IST (after market close)
 
+## Predictive Sandbox (Phase S1 + S2)
+
+Implemented lightweight MiroFish-inspired components:
+- `news_collector.py` (trusted seed-news ingestion + tagging)
+- `sanity_check.py` (volatility guardrail)
+- `swarm_engine.py` (4-agent MAD-style debate)
+- `sandbox_pipeline.py` (runner)
+
+Run:
+
+```bash
+PYTHONPATH=. python sandbox_pipeline.py
+```
+
 ## Testing
 
 ```bash
