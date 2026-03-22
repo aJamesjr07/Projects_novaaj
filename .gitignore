@@ -9,3 +9,6 @@ _site/
 Thumbs.db
 .vscode/
 .idea/
+
+*.egg-info/
+error_log.txt

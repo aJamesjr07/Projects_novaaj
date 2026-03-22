@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: bharat-market-pulse
-Version: 0.1.0
-Summary: Indian market portfolio intelligence pipeline
-Author: Project Nova
-Requires-Dist: pydantic
-Requires-Dist: python-dotenv
-Requires-Dist: requests
-Requires-Dist: pandas
