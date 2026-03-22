@@ -3,5 +3,12 @@ from bharat_market_pulse.data_fetcher import FeedItem
 
 
 def test_score_global_sentiment_bearish():
-    item = FeedItem(source="news", author="x", text="Fed hike and risk-off mood", url="u", published_at="", metadata={})
+    item = FeedItem(
+        source="news",
+        author="x",
+        text="Fed hike and risk-off mood",
+        url="u",
+        created_at="",
+        metadata={},
+    )
     assert score_global_sentiment([item]) < 0

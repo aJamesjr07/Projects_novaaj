@@ -161,8 +161,23 @@ def _extract_company_triggers(items: Sequence[FeedItem]) -> List[CompanyTrigger]
     trusted = _trusted_items(items)
     out: List[CompanyTrigger] = []
 
-    bullish_terms = {"order win", "large order", "earnings beat", "guidance raised", "upgrade", "contract win"}
-    bearish_terms = {"earnings miss", "guidance cut", "downgrade", "penalty", "fraud", "pledge", "default"}
+    bullish_terms = {
+        "order win",
+        "large order",
+        "earnings beat",
+        "guidance raised",
+        "upgrade",
+        "contract win",
+    }
+    bearish_terms = {
+        "earnings miss",
+        "guidance cut",
+        "downgrade",
+        "penalty",
+        "fraud",
+        "pledge",
+        "default",
+    }
 
     for item in trusted:
         text = item.text.lower()
@@ -195,8 +210,12 @@ def _extract_company_triggers(items: Sequence[FeedItem]) -> List[CompanyTrigger]
 
 
 def _sentiment_labels(global_score: int, india_score: int) -> str:
-    global_label = "Bullish" if global_score > 0 else "Bearish" if global_score < 0 else "Neutral"
-    india_label = "Bullish" if india_score > 0 else "Bearish" if india_score < 0 else "Neutral"
+    global_label = (
+        "Bullish" if global_score > 0 else "Bearish" if global_score < 0 else "Neutral"
+    )
+    india_label = (
+        "Bullish" if india_score > 0 else "Bearish" if india_score < 0 else "Neutral"
+    )
     divergence = global_score < 0 and india_score > 0
     sentiment = f"Global={global_label} | India={india_label}"
     if divergence:
@@ -259,20 +278,117 @@ def _extract_entity_relations(items: Sequence[FeedItem]) -> list[RelationEvidenc
     """
     patterns = [
         # entity, include_terms, relation, polarity, reason
-        ("gold", {"gold", "goldbees", "safe haven"}, "benefits_from_uncertainty", "bullish", "Gold demand tends to rise in risk-off phases."),
-        ("silver", {"silver", "silverbees", "industrial metal"}, "volatile_on_risk_shift", "neutral", "Silver reacts to both risk sentiment and industrial demand."),
-        ("base_metals", {"aluminium", "aluminum", "copper", "metal prices", "lme"}, "sensitive_to_growth_cycle", "neutral", "Base metals track global growth and China demand cues."),
-        ("oil", {"crude", "oil", "brent", "wti"}, "drives_energy_margin_risk", "bearish", "Rising crude can pressure refiners/OMCs on margin timing."),
-        ("defence", {"defence", "defense", "order win", "ministry of defence", "contract", "defence deal"}, "supported_by_order_flow", "bullish", "Order inflows can support defence names."),
-        ("order_book", {"order book", "order inflow", "new order", "contract award", "order pipeline"}, "signals_revenue_visibility", "bullish", "Improving order book can improve near-term revenue visibility."),
-        ("rates", {"fed", "rate", "bond yield", "yields"}, "impacts_risk_appetite", "bearish", "Higher rates/yields can reduce equity risk appetite."),
-        ("rbi_policy", {"rbi", "repo", "reverse repo", "mpc", "policy rate"}, "domestic_liquidity_signal", "neutral", "RBI policy cues influence domestic liquidity and borrowing costs."),
-        ("usd", {"dollar", "dxy"}, "fx_sensitivity", "neutral", "Dollar moves can shift global risk and EM flows."),
-        ("rupee", {"rupee", "inr", "usd/inr", "forex"}, "import_export_cost_shift", "neutral", "INR movement affects importers and exporters differently."),
-        ("imports", {"import bill", "import cost", "landed cost"}, "cost_pressure_channel", "bearish", "Higher import costs can pressure margins for import-heavy businesses."),
-        ("exports", {"export demand", "deal pipeline", "overseas demand", "client spending"}, "revenue_support_channel", "bullish", "Improving export demand can support earnings momentum."),
-        ("pharma", {"fda", "usfda", "drug", "formulation"}, "defensive_resilience", "bullish", "Pharma can hold relatively better in uncertain phases."),
-        ("capex", {"capex", "infrastructure", "government spending"}, "supports_domestic_cyclicals", "bullish", "Domestic capex cycle supports industrial demand."),
+        (
+            "gold",
+            {"gold", "goldbees", "safe haven"},
+            "benefits_from_uncertainty",
+            "bullish",
+            "Gold demand tends to rise in risk-off phases.",
+        ),
+        (
+            "silver",
+            {"silver", "silverbees", "industrial metal"},
+            "volatile_on_risk_shift",
+            "neutral",
+            "Silver reacts to both risk sentiment and industrial demand.",
+        ),
+        (
+            "base_metals",
+            {"aluminium", "aluminum", "copper", "metal prices", "lme"},
+            "sensitive_to_growth_cycle",
+            "neutral",
+            "Base metals track global growth and China demand cues.",
+        ),
+        (
+            "oil",
+            {"crude", "oil", "brent", "wti"},
+            "drives_energy_margin_risk",
+            "bearish",
+            "Rising crude can pressure refiners/OMCs on margin timing.",
+        ),
+        (
+            "defence",
+            {
+                "defence",
+                "defense",
+                "order win",
+                "ministry of defence",
+                "contract",
+                "defence deal",
+            },
+            "supported_by_order_flow",
+            "bullish",
+            "Order inflows can support defence names.",
+        ),
+        (
+            "order_book",
+            {
+                "order book",
+                "order inflow",
+                "new order",
+                "contract award",
+                "order pipeline",
+            },
+            "signals_revenue_visibility",
+            "bullish",
+            "Improving order book can improve near-term revenue visibility.",
+        ),
+        (
+            "rates",
+            {"fed", "rate", "bond yield", "yields"},
+            "impacts_risk_appetite",
+            "bearish",
+            "Higher rates/yields can reduce equity risk appetite.",
+        ),
+        (
+            "rbi_policy",
+            {"rbi", "repo", "reverse repo", "mpc", "policy rate"},
+            "domestic_liquidity_signal",
+            "neutral",
+            "RBI policy cues influence domestic liquidity and borrowing costs.",
+        ),
+        (
+            "usd",
+            {"dollar", "dxy"},
+            "fx_sensitivity",
+            "neutral",
+            "Dollar moves can shift global risk and EM flows.",
+        ),
+        (
+            "rupee",
+            {"rupee", "inr", "usd/inr", "forex"},
+            "import_export_cost_shift",
+            "neutral",
+            "INR movement affects importers and exporters differently.",
+        ),
+        (
+            "imports",
+            {"import bill", "import cost", "landed cost"},
+            "cost_pressure_channel",
+            "bearish",
+            "Higher import costs can pressure margins for import-heavy businesses.",
+        ),
+        (
+            "exports",
+            {"export demand", "deal pipeline", "overseas demand", "client spending"},
+            "revenue_support_channel",
+            "bullish",
+            "Improving export demand can support earnings momentum.",
+        ),
+        (
+            "pharma",
+            {"fda", "usfda", "drug", "formulation"},
+            "defensive_resilience",
+            "bullish",
+            "Pharma can hold relatively better in uncertain phases.",
+        ),
+        (
+            "capex",
+            {"capex", "infrastructure", "government spending"},
+            "supports_domestic_cyclicals",
+            "bullish",
+            "Domestic capex cycle supports industrial demand.",
+        ),
     ]
 
     out: list[RelationEvidence] = []
@@ -352,7 +468,9 @@ def _rank_relevant_evidence(
     return [g for g, _s in filtered[:limit]]
 
 
-def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[RelationEvidence]) -> str:
+def infer_direct_impact(
+    ticker: str, global_score: int, graph: Sequence[RelationEvidence]
+) -> str:
     evidence = _rank_relevant_evidence(ticker, graph, limit=3, trusted_only=True)
     if evidence:
         unique_lines: list[str] = []
@@ -372,7 +490,9 @@ def infer_direct_impact(ticker: str, global_score: int, graph: Sequence[Relation
     if t in INDIA_IT_TICKERS and global_score < 0:
         return "Global stress can slow overseas tech demand, so Indian IT may stay under pressure."
     if t in BANKING_TICKERS and global_score < 0:
-        return "Higher global risk can tighten liquidity and weigh on banking sentiment."
+        return (
+            "Higher global risk can tighten liquidity and weigh on banking sentiment."
+        )
     if t in DEFENSIVE_TICKERS:
         return "Pharma/defensive names usually hold up better during uncertain global phases."
     if t in GOLD_TICKERS:
@@ -426,7 +546,9 @@ def _select_citations(items: Sequence[FeedItem], limit: int = 3) -> List[str]:
     """Prefer official/news citations; use social only as fallback."""
     preferred = [i for i in items if i.source in {"official", "news"}]
     pool = preferred if preferred else list(items)
-    ranked = sorted(pool, key=lambda x: float(x.metadata.get("reliability", "0.5")), reverse=True)
+    ranked = sorted(
+        pool, key=lambda x: float(x.metadata.get("reliability", "0.5")), reverse=True
+    )
 
     citations: List[str] = []
     for item in ranked:
@@ -441,7 +563,9 @@ def _select_citations(items: Sequence[FeedItem], limit: int = 3) -> List[str]:
 def _confidence(items: Sequence[FeedItem], graph_hits: int) -> float:
     if not items:
         return 0.0
-    avg_rel = sum(float(i.metadata.get("reliability", "0.5")) for i in items) / len(items)
+    avg_rel = sum(float(i.metadata.get("reliability", "0.5")) for i in items) / len(
+        items
+    )
     volume_bonus = min(len(items) / 20.0, 0.12)
     graph_bonus = min(graph_hits * 0.03, 0.12)
     return max(0.0, min(avg_rel + volume_bonus + graph_bonus, 1.0))
@@ -455,7 +579,17 @@ def _layman_summary(ticker: str, action: str, sentiment: str, context: str) -> s
 
 
 def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str]:
-    high_impact_terms = {"fed", "rate", "inflation", "crude", "oil", "bond", "yields", "dollar", "war"}
+    high_impact_terms = {
+        "fed",
+        "rate",
+        "inflation",
+        "crude",
+        "oil",
+        "bond",
+        "yields",
+        "dollar",
+        "war",
+    }
 
     candidates: List[FeedItem] = []
     for i in items:
@@ -463,7 +597,9 @@ def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str
         if _is_low_signal_post(i.text):
             continue
 
-        has_macro_terms = _contains_any(text, GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS)
+        has_macro_terms = _contains_any(
+            text, GLOBAL_BEARISH_KEYWORDS | GLOBAL_BULLISH_KEYWORDS
+        )
         is_global_pillar = i.metadata.get("pillar") == "global_event"
 
         # For global events, keep only official/news quality sources.
@@ -505,7 +641,9 @@ def extract_global_events(items: Sequence[FeedItem], limit: int = 5) -> List[str
     return out
 
 
-def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]) -> AnalysisBundle:
+def build_analysis_bundle(
+    holdings: Sequence[Holding], items: Sequence[FeedItem]
+) -> AnalysisBundle:
     if not holdings or not items:
         return AnalysisBundle(
             rows=[
@@ -537,13 +675,19 @@ def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]
 
         context = infer_direct_impact(h.ticker, global_score, graph)
         if ticker_triggers:
-            top_trigger = sorted(ticker_triggers, key=lambda t: t.reliability, reverse=True)[0]
+            top_trigger = sorted(
+                ticker_triggers, key=lambda t: t.reliability, reverse=True
+            )[0]
             context = f"{context}; {top_trigger.reason} ({top_trigger.source})"
 
-        action = classify_action(global_score, india_score, rel_evidence, ticker_triggers)
+        action = classify_action(
+            global_score, india_score, rel_evidence, ticker_triggers
+        )
 
         row_citations: List[str] = []
-        trusted_evidence = [e for e in rel_evidence if "(official)" in e.source or "(news)" in e.source]
+        trusted_evidence = [
+            e for e in rel_evidence if "(official)" in e.source or "(news)" in e.source
+        ]
         evidence_for_citation = trusted_evidence if trusted_evidence else []
 
         # Only include social citations when at least one trusted evidence exists (corroboration rule).
@@ -554,7 +698,9 @@ def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]
             if ev.url:
                 row_citations.append(f"{ev.source} - {ev.url}")
 
-        for trig in sorted(ticker_triggers, key=lambda t: t.reliability, reverse=True)[:2]:
+        for trig in sorted(ticker_triggers, key=lambda t: t.reliability, reverse=True)[
+            :2
+        ]:
             if trig.url:
                 row_citations.append(f"{trig.source} - {trig.url}")
 
@@ -571,7 +717,9 @@ def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]
                 global_context=context,
                 action=action,
                 confidence=round(conf, 2),
-                layman_summary=_layman_summary(h.ticker, action, sentiment_label, context),
+                layman_summary=_layman_summary(
+                    h.ticker, action, sentiment_label, context
+                ),
                 citations=row_citations,
             )
         )
@@ -579,7 +727,9 @@ def build_analysis_bundle(holdings: Sequence[Holding], items: Sequence[FeedItem]
     return AnalysisBundle(rows=rows, global_events=extract_global_events(items))
 
 
-def build_report_rows(holdings: Sequence[Holding], items: Sequence[FeedItem]) -> List[AnalysisRow]:
+def build_report_rows(
+    holdings: Sequence[Holding], items: Sequence[FeedItem]
+) -> List[AnalysisRow]:
     return build_analysis_bundle(holdings, items).rows
 
 

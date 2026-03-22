@@ -61,7 +61,9 @@ def _parse_rows(content: str) -> List[Holding]:
             continue
         if not ticker or qty <= 0:
             continue
-        out.append(Holding(ticker=ticker, quantity=qty, confidence=max(0.0, min(conf, 1.0))))
+        out.append(
+            Holding(ticker=ticker, quantity=qty, confidence=max(0.0, min(conf, 1.0)))
+        )
 
     # de-dup keep highest confidence
     best: dict[str, Holding] = {}
@@ -72,7 +74,9 @@ def _parse_rows(content: str) -> List[Holding]:
     return list(best.values())
 
 
-def run_llm_extraction(image_path: str, settings: LLMExtractorSettings) -> List[Holding]:
+def run_llm_extraction(
+    image_path: str, settings: LLMExtractorSettings
+) -> List[Holding]:
     """Extract holdings from screenshot via vision LLM.
 
     Raises RuntimeError on API/config/parse failure.
@@ -87,7 +91,7 @@ def run_llm_extraction(image_path: str, settings: LLMExtractorSettings) -> List[
     prompt = (
         "You are extracting holdings from an Indian brokerage holdings screenshot. "
         "Return ONLY strict JSON with schema: "
-        "{\"holdings\":[{\"ticker\":string,\"quantity\":number,\"confidence\":number}]}. "
+        '{"holdings":[{"ticker":string,"quantity":number,"confidence":number}]}. '
         "Rules: include only clear holdings rows; ignore UI words (holdings, shares labels, totals). "
         "Ticker should be NSE-style short symbol if possible (e.g., BEL, HINDCOPPER, GOLDBEES, SILVERBEES, TATAGOLD, TATSILV, HINDALCO, IOC, BPCL, OIL, VEDL, NALCO, LAURUS, PARAS). "
         "Quantity must be units/shares count and positive integer."
@@ -114,9 +118,13 @@ def run_llm_extraction(image_path: str, settings: LLMExtractorSettings) -> List[
         ],
     }
 
-    resp = requests.post(url, headers=headers, json=body, timeout=settings.timeout_seconds)
+    resp = requests.post(
+        url, headers=headers, json=body, timeout=settings.timeout_seconds
+    )
     if resp.status_code >= 300:
-        raise RuntimeError(f"LLM extraction failed: HTTP {resp.status_code} {resp.text[:300]}")
+        raise RuntimeError(
+            f"LLM extraction failed: HTTP {resp.status_code} {resp.text[:300]}"
+        )
 
     data = resp.json()
     try:

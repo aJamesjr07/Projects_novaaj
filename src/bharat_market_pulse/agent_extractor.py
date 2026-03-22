@@ -47,7 +47,9 @@ def load_agent_extracted_holdings(file_path: str) -> List[Holding]:
             continue
         if qty <= 0:
             continue
-        out.append(Holding(ticker=ticker, quantity=qty, confidence=max(0.0, min(conf, 1.0))))
+        out.append(
+            Holding(ticker=ticker, quantity=qty, confidence=max(0.0, min(conf, 1.0)))
+        )
 
     # de-dup keep highest confidence
     best: dict[str, Holding] = {}

@@ -58,7 +58,9 @@ class Holding:
 ROW_TICKER_PATTERN = re.compile(r"\b([A-Z][A-Z0-9&\-]{2,18})\b")
 PERCENT_PATTERN = re.compile(r"-?\d{1,3}(?:\.\d{1,2})?%")
 SHARES_PATTERN = re.compile(r"\b(\d{1,7})\s*shares?\b", re.IGNORECASE)
-QTY_PATTERN = re.compile(r"\b(?:qty|quantity|units?)\s*[:\-]?\s*(\d{1,7})\b", re.IGNORECASE)
+QTY_PATTERN = re.compile(
+    r"\b(?:qty|quantity|units?)\s*[:\-]?\s*(\d{1,7})\b", re.IGNORECASE
+)
 
 
 DENYLIST = {
@@ -207,7 +209,9 @@ def _line_score(text: str, conf: float) -> float:
     return max(0.0, min(score, 0.99))
 
 
-def _extract_candidate_rows(lines: list[tuple[str, float, str]], min_confidence: float) -> list[tuple[str, float]]:
+def _extract_candidate_rows(
+    lines: list[tuple[str, float, str]], min_confidence: float
+) -> list[tuple[str, float]]:
     """Filter OCR output to likely row content for symbol/qty extraction."""
     selected: list[tuple[str, float]] = []
     for text, conf, _engine in lines:
@@ -217,7 +221,9 @@ def _extract_candidate_rows(lines: list[tuple[str, float, str]], min_confidence:
     return selected
 
 
-def _parse_qty_near_line(lines: list[tuple[str, float]], idx: int, window: int = 4) -> tuple[int | None, float]:
+def _parse_qty_near_line(
+    lines: list[tuple[str, float]], idx: int, window: int = 4
+) -> tuple[int | None, float]:
     """Find quantity near a ticker line using "shares"/"qty" clues."""
     base_conf = lines[idx][1]
     for j in range(idx, min(idx + window, len(lines))):
@@ -263,7 +269,9 @@ def _extract_holdings_from_rows(lines: list[tuple[str, float]]) -> list[Holding]
             qty, qty_conf = _parse_qty_near_line(lines, i)
             if qty is None:
                 continue
-            candidates.append(Holding(ticker=symbol, quantity=qty, confidence=float(qty_conf)))
+            candidates.append(
+                Holding(ticker=symbol, quantity=qty, confidence=float(qty_conf))
+            )
             break
     return candidates
 
@@ -315,7 +323,9 @@ def run_ocr(image_path: str, min_confidence: float = 0.60) -> List[Holding]:
         if not all_lines:
             raise LowConfidenceScoreError("No OCR text detected from image.")
 
-        selected_lines = _extract_candidate_rows(all_lines, min_confidence=min_confidence)
+        selected_lines = _extract_candidate_rows(
+            all_lines, min_confidence=min_confidence
+        )
         if not selected_lines:
             raise LowConfidenceScoreError(
                 f"All OCR confidence scores below threshold {min_confidence:.2f}."
@@ -326,7 +336,9 @@ def run_ocr(image_path: str, min_confidence: float = 0.60) -> List[Holding]:
 
         # Conservative fallback: if too little extracted, relax threshold a bit once.
         if len(deduped) < 4:
-            relaxed = _extract_candidate_rows(all_lines, min_confidence=max(0.45, min_confidence - 0.12))
+            relaxed = _extract_candidate_rows(
+                all_lines, min_confidence=max(0.45, min_confidence - 0.12)
+            )
             deduped = _consensus_dedup(_extract_holdings_from_rows(relaxed))
 
         return deduped
@@ -345,7 +357,9 @@ def main() -> None:
     try:
         holdings = run_ocr(sample_image)
         if not holdings:
-            print("Data Deficiency Warning: No ticker/quantity pairs extracted from OCR.")
+            print(
+                "Data Deficiency Warning: No ticker/quantity pairs extracted from OCR."
+            )
             return
 
         print("Extracted Holdings:")

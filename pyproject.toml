@@ -6,12 +6,23 @@ build-backend = "setuptools.build_meta"
 name = "bharat-market-pulse"
 version = "0.1.0"
 description = "Indian market portfolio intelligence pipeline"
-authors = [{name="Project Nova"}]
+authors = [{ name = "Project Nova" }]
 dependencies = [
-    "pydantic",
-    "python-dotenv",
-    "requests",
-    "pandas"
+  "pydantic",
+  "python-dotenv",
+  "requests",
+  "pandas",
+  "numpy",
+  "pillow",
+  "easyocr",
+  "pytesseract",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+  "black",
 ]
 
 [tool.setuptools.packages.find]

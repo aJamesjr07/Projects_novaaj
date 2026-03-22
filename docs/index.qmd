@@ -10,4 +10,4 @@ India-focused portfolio analysis pipeline built with Python + Quarto.
 - Source-weighted market analysis
 - Buy/Hold/Sell actions with confidence and citations
 
-See the [Quickstart](docs/quickstart.md) to run locally.
+See the [Quickstart](quickstart.md) to run locally.

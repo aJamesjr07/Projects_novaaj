@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from .data_fetcher import FeedItem, fetch_global_event_items, fetch_news_items, fetch_official_rss_items
+from .data_fetcher import (
+    FeedItem,
+    fetch_global_event_items,
+    fetch_news_items,
+    fetch_official_rss_items,
+)
 
 
 LOG_PATH = Path(__file__).resolve().parent / "logs" / "system_errors.log"
@@ -74,7 +79,11 @@ def collect_seed_news(limit: int = 12) -> List[SeedNews]:
         raw.extend(fetch_global_event_items(page_size=20))
 
         trusted = [i for i in raw if i.source in {"official", "news"} and i.url]
-        ranked = sorted(trusted, key=lambda x: float(x.metadata.get("reliability", "0.5")), reverse=True)
+        ranked = sorted(
+            trusted,
+            key=lambda x: float(x.metadata.get("reliability", "0.5")),
+            reverse=True,
+        )
 
         seeds: List[SeedNews] = []
         seen_titles: set[str] = set()

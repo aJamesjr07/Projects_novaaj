@@ -15,10 +15,10 @@ from .config import get_settings
 
 
 TWITTER_PILLARS = [
-    "deepakshenoy",      # Macro
-    "SamirArora",        # Global/India sentiment
-    "Indiacharts",       # Technical
-    "CNBCTV18Live",      # Breaking News
+    "deepakshenoy",  # Macro
+    "SamirArora",  # Global/India sentiment
+    "Indiacharts",  # Technical
+    "CNBCTV18Live",  # Breaking News
 ]
 
 REDDIT_PILLARS = [
@@ -114,7 +114,9 @@ def _is_low_quality_news_text(text: str) -> bool:
     return any(re.search(p, t) for p in noisy_patterns)
 
 
-def _make_item(source: str, author: str, text: str, url: str, created_at: str, **metadata: str) -> FeedItem:
+def _make_item(
+    source: str, author: str, text: str, url: str, created_at: str, **metadata: str
+) -> FeedItem:
     """Create a standardized feed item with reliability metadata.
 
     Args:
@@ -129,8 +131,18 @@ def _make_item(source: str, author: str, text: str, url: str, created_at: str, *
         FeedItem object.
     """
     reliability = SOURCE_RELIABILITY.get(source, 0.5)
-    payload = {"reliability": f"{reliability:.2f}", **{k: str(v) for k, v in metadata.items()}}
-    return FeedItem(source=source, author=author, text=text, url=url, created_at=created_at, metadata=payload)
+    payload = {
+        "reliability": f"{reliability:.2f}",
+        **{k: str(v) for k, v in metadata.items()},
+    }
+    return FeedItem(
+        source=source,
+        author=author,
+        text=text,
+        url=url,
+        created_at=created_at,
+        metadata=payload,
+    )
 
 
 def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
@@ -151,7 +163,9 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
 
     for username in TWITTER_PILLARS:
         user_url = f"https://api.twitter.com/2/users/by/username/{username}"
-        user_resp = with_exponential_backoff(lambda: requests.get(user_url, headers=headers, timeout=15))
+        user_resp = with_exponential_backoff(
+            lambda: requests.get(user_url, headers=headers, timeout=15)
+        )
         user_id = user_resp.json().get("data", {}).get("id")
         if not user_id:
             continue
@@ -160,7 +174,9 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
             f"https://api.twitter.com/2/users/{user_id}/tweets"
             f"?max_results={max(5, min(100, limit_per_account))}&tweet.fields=created_at"
         )
-        tweets_resp = with_exponential_backoff(lambda: requests.get(tweets_url, headers=headers, timeout=15))
+        tweets_resp = with_exponential_backoff(
+            lambda: requests.get(tweets_url, headers=headers, timeout=15)
+        )
         tweets_data = tweets_resp.json().get("data", [])
 
         for t in tweets_data[:limit_per_account]:
@@ -173,7 +189,9 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
                     source="twitter",
                     author=f"@{username}",
                     text=text,
-                    url=f"https://x.com/{username}/status/{tweet_id}" if tweet_id else f"https://x.com/{username}",
+                    url=f"https://x.com/{username}/status/{tweet_id}"
+                    if tweet_id
+                    else f"https://x.com/{username}",
                     created_at=t.get("created_at", _utc_now()),
                     pillar="indian_market",
                     region="india",
@@ -197,7 +215,9 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
 
     for sub in REDDIT_PILLARS:
         url = f"https://www.reddit.com/r/{sub}/new.json?limit={limit_per_subreddit}"
-        resp = with_exponential_backoff(lambda: requests.get(url, headers=headers, timeout=15))
+        resp = with_exponential_backoff(
+            lambda: requests.get(url, headers=headers, timeout=15)
+        )
         children = resp.json().get("data", {}).get("children", [])
 
         for child in children:
@@ -206,7 +226,11 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
             if not text:
                 continue
             created_utc = data.get("created_utc")
-            created_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat() if created_utc else _utc_now()
+            created_at = (
+                datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat()
+                if created_utc
+                else _utc_now()
+            )
             permalink = data.get("permalink", "")
 
             items.append(
@@ -214,7 +238,9 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
                     source="reddit",
                     author=f"r/{sub}",
                     text=text,
-                    url=f"https://reddit.com{permalink}" if permalink else f"https://reddit.com/r/{sub}",
+                    url=f"https://reddit.com{permalink}"
+                    if permalink
+                    else f"https://reddit.com/r/{sub}",
                     created_at=created_at,
                     pillar="indian_market",
                     region="india",
@@ -224,7 +250,10 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
     return items
 
 
-def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE OR earnings OR results", page_size: int = 20) -> List[FeedItem]:
+def fetch_news_items(
+    query: str = "India stock market OR RBI OR NSE OR BSE OR earnings OR results",
+    page_size: int = 20,
+) -> List[FeedItem]:
     """Fetch market-relevant news items from NewsAPI.
 
     Args:
@@ -391,7 +420,9 @@ def main() -> None:
     """Run source fetch and print counts by source."""
     items = fetch_all_sources()
     if not items:
-        print("Data Deficiency Warning: No source items fetched. Check API keys / connectivity.")
+        print(
+            "Data Deficiency Warning: No source items fetched. Check API keys / connectivity."
+        )
         return
 
     counts: Dict[str, int] = {}

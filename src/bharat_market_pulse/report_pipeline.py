@@ -31,7 +31,9 @@ def _merge_holdings(existing: List[Holding], incoming: List[Holding]) -> List[Ho
 def _image_paths_from_settings() -> List[str]:
     """Resolve one or multiple screenshot paths from env settings."""
     settings = get_settings()
-    paths = [p.strip() for p in settings.market_report_image_paths.split(",") if p.strip()]
+    paths = [
+        p.strip() for p in settings.market_report_image_paths.split(",") if p.strip()
+    ]
     if not paths:
         paths = [settings.market_report_image_path]
     return paths
@@ -58,9 +60,13 @@ def render_report(bundle: AnalysisBundle, swarm: SwarmOutcome | None = None) -> 
         lines.append(
             f"- Today we reviewed **{len(rows)} holdings**. Actions: **Buy {buy_count}**, **Hold {hold_count}**, **Sell {sell_count}**."
         )
-        lines.append(f"- Overall confidence is **{avg_conf:.2f}** (higher = better source backing).")
+        lines.append(
+            f"- Overall confidence is **{avg_conf:.2f}** (higher = better source backing)."
+        )
     else:
-        lines.append("- Not enough reliable input to generate a confident portfolio view today.")
+        lines.append(
+            "- Not enough reliable input to generate a confident portfolio view today."
+        )
     lines.append("")
 
     if rows and rows[0].ticker != "N/A":
@@ -68,10 +74,16 @@ def render_report(bundle: AnalysisBundle, swarm: SwarmOutcome | None = None) -> 
         buys = [r.ticker for r in rows if r.action == "Buy"]
         holds = [r.ticker for r in rows if r.action == "Hold"]
         sells = [r.ticker for r in rows if r.action == "Sell"]
-        lines.append(f"- **Add/accumulate watchlist:** {', '.join(buys) if buys else 'None today'}")
+        lines.append(
+            f"- **Add/accumulate watchlist:** {', '.join(buys) if buys else 'None today'}"
+        )
         lines.append(f"- **Hold/monitor:** {', '.join(holds) if holds else 'None'}")
-        lines.append(f"- **Reduce/exit watchlist:** {', '.join(sells) if sells else 'None today'}")
-        lines.append("- Focus on risk control first; act only on high-confidence, catalyst-backed signals.")
+        lines.append(
+            f"- **Reduce/exit watchlist:** {', '.join(sells) if sells else 'None today'}"
+        )
+        lines.append(
+            "- Focus on risk control first; act only on high-confidence, catalyst-backed signals."
+        )
         lines.append("")
 
     if swarm is not None:
@@ -89,7 +101,9 @@ def render_report(bundle: AnalysisBundle, swarm: SwarmOutcome | None = None) -> 
         for e in bundle.global_events:
             lines.append(f"- {e}")
     else:
-        lines.append("- No high-priority global trigger detected from available sources in this run.")
+        lines.append(
+            "- No high-priority global trigger detected from available sources in this run."
+        )
     lines.append("")
 
     lines.append("## Portfolio Action Table")

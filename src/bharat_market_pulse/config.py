@@ -9,6 +9,7 @@ from pathlib import Path
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover
+
     def load_dotenv() -> bool:
         return False
 
@@ -55,8 +56,15 @@ def get_settings() -> Settings:
     Returns:
         Settings dataclass populated from .env or process environment.
     """
-    use_llm_first = os.getenv("USE_LLM_FIRST", "true").strip().lower() in {"1", "true", "yes", "on"}
-    use_agent_extract_first = os.getenv("USE_AGENT_EXTRACT_FIRST", "true").strip().lower() in {"1", "true", "yes", "on"}
+    use_llm_first = os.getenv("USE_LLM_FIRST", "true").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    use_agent_extract_first = os.getenv(
+        "USE_AGENT_EXTRACT_FIRST", "true"
+    ).strip().lower() in {"1", "true", "yes", "on"}
 
     return Settings(
         x_bearer_token=os.getenv("X_BEARER_TOKEN", ""),
@@ -65,7 +73,9 @@ def get_settings() -> Settings:
         market_report_image_paths=os.getenv("MARKET_REPORT_IMAGE_PATHS", ""),
         report_output_dir=Path(os.getenv("REPORT_OUTPUT_DIR", "./reports")),
         use_agent_extract_first=use_agent_extract_first,
-        agent_extract_file_path=os.getenv("AGENT_EXTRACT_FILE_PATH", "./agent_extracted_holdings.json"),
+        agent_extract_file_path=os.getenv(
+            "AGENT_EXTRACT_FILE_PATH", "./agent_extracted_holdings.json"
+        ),
         use_llm_first=use_llm_first,
         llm_api_key=os.getenv("LLM_API_KEY", ""),
         llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
