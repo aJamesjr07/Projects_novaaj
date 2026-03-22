@@ -36,3 +36,15 @@ cp .env.example .env
 4. run pipeline
 
 python -m bharat_market_pulse.report_pipeline
+
+## Developer commands
+
+```bash
+make setup   # create venv + install editable package + dev tools
+make lint    # ruff lint
+make format  # ruff formatter
+make test    # pytest
+make check   # lint + format-check + tests
+make run     # run pipeline
+```
+
