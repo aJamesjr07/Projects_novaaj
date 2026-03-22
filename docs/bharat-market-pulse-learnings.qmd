@@ -5,4 +5,4 @@ format:
     toc: true
 ---
 
-{{< include docs/bharat_market_pulse_learnings.md >}}
+{{< include bharat_market_pulse_learnings.md >}}

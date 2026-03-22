@@ -1,0 +1,5 @@
+2026-03-22 19:11:46,345 | ERROR | OCR validation error.
+Traceback (most recent call last):
+  File "/home/ajjames/Desktop/qmd-github-project/src/bharat_market_pulse/ocr_engine.py", line 308, in run_ocr
+    raise ImageNotFoundError(f"Image not found: {img_file}")
+bharat_market_pulse.ocr_engine.ImageNotFoundError: Image not found: portfolio.png
