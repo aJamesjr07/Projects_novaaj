@@ -1,29 +1,31 @@
-"""Data fetcher for Bharat Market Pulse sources (social, news, and official feeds)."""
+"""Data fetcher for Bharat Market Pulse sources (social, news, official feeds)."""
 
 from __future__ import annotations
 
+import logging
+import re
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import re
 from typing import Callable, Dict, List
 
 import requests
 
 from config import get_settings
 
+logger = logging.getLogger(__name__)
 
 TWITTER_PILLARS = [
-    "deepakshenoy",      # Macro
-    "SamirArora",        # Global/India sentiment
-    "Indiacharts",       # Technical
-    "CNBCTV18Live",      # Breaking News
+    "deepakshenoy",
+    "SamirArora",
+    "Indiacharts",
+    "CNBCTV18Live",
 ]
 
 REDDIT_PILLARS = [
-    "IndiaInvestments",  # Fundamental
-    "IndianStreetBets",  # Retail hype
+    "IndiaInvestments",
+    "IndianStreetBets",
 ]
 
 SOURCE_RELIABILITY = {
@@ -36,17 +38,6 @@ SOURCE_RELIABILITY = {
 
 @dataclass
 class FeedItem:
-    """Unified feed item object.
-
-    Attributes:
-        source: Origin source (official/news/twitter/reddit).
-        author: Account/subreddit/agency identity.
-        text: Post headline/body.
-        url: Canonical link.
-        created_at: UTC timestamp string.
-        metadata: Optional source-specific metadata.
-    """
-
     source: str
     author: str
     text: str
@@ -61,20 +52,7 @@ def with_exponential_backoff(
     initial_delay: float = 1.0,
     max_delay: float = 30.0,
 ) -> requests.Response:
-    """Execute an HTTP call with exponential backoff on rate limits.
-
-    Args:
-        fn: Zero-argument function that executes and returns a Response.
-        max_retries: Maximum retry attempts.
-        initial_delay: Initial backoff delay in seconds.
-        max_delay: Maximum delay cap in seconds.
-
-    Returns:
-        Successful HTTP response object.
-
-    Raises:
-        requests.HTTPError: If request still fails after retries.
-    """
+    """Execute an HTTP call with exponential backoff on rate limits."""
     delay = initial_delay
     for attempt in range(max_retries + 1):
         response = fn()
@@ -94,12 +72,10 @@ def with_exponential_backoff(
 
 
 def _utc_now() -> str:
-    """Return current UTC timestamp as ISO string."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _is_low_quality_news_text(text: str) -> bool:
-    """Filter generic/ad-like/low-information headlines."""
     t = (text or "").strip().lower()
     if len(t) < 35:
         return True
@@ -115,35 +91,25 @@ def _is_low_quality_news_text(text: str) -> bool:
 
 
 def _make_item(source: str, author: str, text: str, url: str, created_at: str, **metadata: str) -> FeedItem:
-    """Create a standardized feed item with reliability metadata.
-
-    Args:
-        source: Source family.
-        author: Source author/handle.
-        text: Item body text.
-        url: Item URL.
-        created_at: ISO timestamp.
-        **metadata: Additional metadata.
-
-    Returns:
-        FeedItem object.
-    """
     reliability = SOURCE_RELIABILITY.get(source, 0.5)
-    payload = {"reliability": f"{reliability:.2f}", **{k: str(v) for k, v in metadata.items()}}
-    return FeedItem(source=source, author=author, text=text, url=url, created_at=created_at, metadata=payload)
+    payload = {
+        "reliability": f"{reliability:.2f}",
+        **{k: str(v) for k, v in metadata.items()},
+    }
+    return FeedItem(
+        source=source,
+        author=author,
+        text=text,
+        url=url,
+        created_at=created_at,
+        metadata=payload,
+    )
 
 
 def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
-    """Fetch latest posts from configured X/Twitter pillars.
-
-    Args:
-        limit_per_account: Number of posts to retrieve per account.
-
-    Returns:
-        List of FeedItem from pillar accounts.
-    """
     bearer_token = get_settings().x_bearer_token
     if not bearer_token:
+        logger.info("X_BEARER_TOKEN not configured; skipping Twitter fetch.")
         return []
 
     headers = {"Authorization": f"Bearer {bearer_token}"}
@@ -184,14 +150,6 @@ def fetch_twitter_items(limit_per_account: int = 5) -> List[FeedItem]:
 
 
 def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
-    """Fetch latest Reddit posts from configured pillar subreddits.
-
-    Args:
-        limit_per_subreddit: Number of recent posts to retrieve.
-
-    Returns:
-        List of FeedItem from Reddit.
-    """
     headers = {"User-Agent": "bharat-market-pulse/1.0"}
     items: List[FeedItem] = []
 
@@ -224,18 +182,13 @@ def fetch_reddit_items(limit_per_subreddit: int = 10) -> List[FeedItem]:
     return items
 
 
-def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE OR earnings OR results", page_size: int = 20) -> List[FeedItem]:
-    """Fetch market-relevant news items from NewsAPI.
-
-    Args:
-        query: Query text for market filtering.
-        page_size: Maximum number of articles.
-
-    Returns:
-        List of FeedItem from news API.
-    """
+def fetch_news_items(
+    query: str = "India stock market OR RBI OR NSE OR BSE OR earnings OR results",
+    page_size: int = 20,
+) -> List[FeedItem]:
     api_key = get_settings().news_api_key
     if not api_key:
+        logger.info("NEWS_API_KEY not configured; skipping market news fetch.")
         return []
 
     trusted_domains = (
@@ -274,14 +227,6 @@ def fetch_news_items(query: str = "India stock market OR RBI OR NSE OR BSE OR ea
 
 
 def fetch_official_rss_items(limit_per_feed: int = 8) -> List[FeedItem]:
-    """Fetch official/regulatory headlines from public RSS feeds.
-
-    Args:
-        limit_per_feed: Maximum items per feed.
-
-    Returns:
-        List of FeedItem from official feeds.
-    """
     feeds = [
         ("SEBI", "https://www.sebi.gov.in/sebirss.xml"),
     ]
@@ -311,23 +256,17 @@ def fetch_official_rss_items(limit_per_feed: int = 8) -> List[FeedItem]:
                         region="india",
                     )
                 )
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Official RSS fetch failed for %s: %s", author, exc)
             continue
 
     return items
 
 
 def fetch_global_event_items(page_size: int = 10) -> List[FeedItem]:
-    """Fetch macro global event headlines (Fed, inflation, crude, dollar).
-
-    Args:
-        page_size: Maximum number of articles.
-
-    Returns:
-        List of FeedItem tagged as global events.
-    """
     api_key = get_settings().news_api_key
     if not api_key:
+        logger.info("NEWS_API_KEY not configured; skipping global event fetch.")
         return []
 
     query = 'Fed OR "US inflation" OR "US jobs" OR "crude oil" OR "dollar index" OR "bond yields" OR "US treasury yields"'
@@ -363,32 +302,32 @@ def fetch_global_event_items(page_size: int = 10) -> List[FeedItem]:
     return items
 
 
+def _safe_fetch(label: str, fn: Callable[[], List[FeedItem]]) -> List[FeedItem]:
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("%s fetch failed; continuing degraded mode: %s", label, exc)
+        return []
+
+
 def fetch_all_sources() -> List[FeedItem]:
-    """Fetch and combine all configured social, news, and official sources.
-
-    Preference order: official/news first, social as supplemental context.
-
-    Returns:
-        Unified list of FeedItem objects from active sources.
-    """
+    """Fetch and combine all configured sources with graceful degradation."""
     items: List[FeedItem] = []
-    official = fetch_official_rss_items()
-    news = fetch_news_items(page_size=30)
-    global_news = fetch_global_event_items(page_size=15)
-    twitter = fetch_twitter_items(limit_per_account=2)
-    reddit = fetch_reddit_items(limit_per_subreddit=2)
+    official = _safe_fetch("official", fetch_official_rss_items)
+    news = _safe_fetch("news", lambda: fetch_news_items(page_size=30))
+    global_news = _safe_fetch("global_news", lambda: fetch_global_event_items(page_size=15))
+    twitter = _safe_fetch("twitter", lambda: fetch_twitter_items(limit_per_account=2))
+    reddit = _safe_fetch("reddit", lambda: fetch_reddit_items(limit_per_subreddit=2))
 
     items.extend(official)
     items.extend(news)
     items.extend(global_news)
     items.extend(twitter)
-    # Keep reddit as minor signal only.
     items.extend(reddit[:4])
     return items
 
 
 def main() -> None:
-    """Run source fetch and print counts by source."""
     items = fetch_all_sources()
     if not items:
         print("Data Deficiency Warning: No source items fetched. Check API keys / connectivity.")
