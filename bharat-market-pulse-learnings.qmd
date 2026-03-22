@@ -1,0 +1,8 @@
+---
+title: "Bharat Market Pulse Learnings"
+format:
+  html:
+    toc: true
+---
+
+{{< include docs/bharat_market_pulse_learnings.md >}}

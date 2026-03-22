@@ -1,0 +1,7 @@
+---
+title: "Home"
+---
+
+# Welcome
+
+Your QMD + GitHub-friendly project is ready.
