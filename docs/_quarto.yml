@@ -7,6 +7,12 @@ website:
     left:
       - href: index.qmd
         text: Home
+      - href: quickstart.qmd
+        text: Quickstart
+      - href: architecture.qmd
+        text: Architecture
+      - href: limitations.qmd
+        text: Limitations
       - href: bharat-market-pulse-learnings.qmd
         text: Learnings
 

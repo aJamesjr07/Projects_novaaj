@@ -61,9 +61,7 @@ def _parse_rows(content: str) -> List[Holding]:
             continue
         if not ticker or qty <= 0:
             continue
-        out.append(
-            Holding(ticker=ticker, quantity=qty, confidence=max(0.0, min(conf, 1.0)))
-        )
+        out.append(Holding(ticker=ticker, quantity=qty, confidence=max(0.0, min(conf, 1.0))))
 
     # de-dup keep highest confidence
     best: dict[str, Holding] = {}
@@ -74,9 +72,7 @@ def _parse_rows(content: str) -> List[Holding]:
     return list(best.values())
 
 
-def run_llm_extraction(
-    image_path: str, settings: LLMExtractorSettings
-) -> List[Holding]:
+def run_llm_extraction(image_path: str, settings: LLMExtractorSettings) -> List[Holding]:
     """Extract holdings from screenshot via vision LLM.
 
     Raises RuntimeError on API/config/parse failure.
@@ -118,13 +114,9 @@ def run_llm_extraction(
         ],
     }
 
-    resp = requests.post(
-        url, headers=headers, json=body, timeout=settings.timeout_seconds
-    )
+    resp = requests.post(url, headers=headers, json=body, timeout=settings.timeout_seconds)
     if resp.status_code >= 300:
-        raise RuntimeError(
-            f"LLM extraction failed: HTTP {resp.status_code} {resp.text[:300]}"
-        )
+        raise RuntimeError(f"LLM extraction failed: HTTP {resp.status_code} {resp.text[:300]}")
 
     data = resp.json()
     try:

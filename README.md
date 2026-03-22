@@ -9,33 +9,36 @@ and produces structured investment intelligence reports.
 
 ## Project structure
 
-src/
-    Python application
-
-docs/
-    Quarto documentation site
-
-tests/
-    unit tests
+- `src/` — Python application
+- `docs/` — Quarto documentation site
+- `tests/` — unit tests
 
 ## Quickstart
 
 1. create virtual environment
 
+```bash
 python -m venv .venv
 source .venv/bin/activate
+```
 
 2. install dependencies
 
-pip install -e .
+```bash
+pip install -e .[dev]
+```
 
 3. configure environment
 
+```bash
 cp .env.example .env
+```
 
 4. run pipeline
 
+```bash
 python -m bharat_market_pulse.report_pipeline
+```
 
 ## Developer commands
 
@@ -48,3 +51,7 @@ make check   # lint + format-check + tests
 make run     # run pipeline
 ```
 
+## Disclaimer
+
+This project is a research-assist and portfolio-monitoring tool. It is not financial advice.
+Output quality depends on source quality and extraction quality.

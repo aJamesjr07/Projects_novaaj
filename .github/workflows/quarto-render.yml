@@ -2,7 +2,7 @@ name: Render Quarto
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -11,5 +11,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: quarto-dev/quarto-actions/setup@v2
-      - name: Render project
-        run: quarto render
+      - name: Render docs site
+        run: quarto render docs

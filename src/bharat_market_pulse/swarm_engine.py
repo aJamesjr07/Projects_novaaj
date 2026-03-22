@@ -59,14 +59,9 @@ def default_four_agents() -> List[Agent]:
 def _seed_event_score(seed: SeedNews) -> float:
     t = seed.title.lower()
     score = 0.0
-    if any(
-        k in t for k in {"rate hike", "repo hike", "inflation", "selloff", "downgrade"}
-    ):
+    if any(k in t for k in {"rate hike", "repo hike", "inflation", "selloff", "downgrade"}):
         score -= 0.45
-    if any(
-        k in t
-        for k in {"rate cut", "order win", "earnings beat", "upgrade", "capex boost"}
-    ):
+    if any(k in t for k in {"rate cut", "order win", "earnings beat", "upgrade", "capex boost"}):
         score += 0.45
     if any(k in t for k in {"policy", "rbi", "fed", "crude", "yields"}):
         score += -0.1 if score < 0 else 0.1
@@ -103,9 +98,7 @@ def run_swarm_debate(
 
     raw_consensus = sum(states) / len(states)
     catalyst_strength = min(1.0, abs(macro_pulse) + 0.2)
-    sanity = apply_volatility_guard(
-        raw_consensus, baseline_volatility, catalyst_strength
-    )
+    sanity = apply_volatility_guard(raw_consensus, baseline_volatility, catalyst_strength)
     consensus = sanity.adjusted_score
 
     if consensus >= 0.20:

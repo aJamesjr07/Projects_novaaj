@@ -38,9 +38,7 @@ def apply_volatility_guard(
 
     # Allow larger swings only when catalyst is very strong.
     if catalyst_strength >= 0.85:
-        return SanityResult(
-            True, max(-1.0, min(1.0, raw_score)), "Strong catalyst override"
-        )
+        return SanityResult(True, max(-1.0, min(1.0, raw_score)), "Strong catalyst override")
 
     if abs(raw_score) <= limit:
         return SanityResult(True, raw_score, "Within volatility guard")

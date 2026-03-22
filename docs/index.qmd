@@ -4,10 +4,24 @@ title: "Bharat Market Pulse"
 
 # Bharat Market Pulse
 
-India-focused portfolio analysis pipeline built with Python + Quarto.
+Bharat Market Pulse is a portfolio monitoring and research-assist pipeline for Indian markets.
 
-- Screenshot extraction (Agent JSON / LLM / OCR fallback)
-- Source-weighted market analysis
-- Buy/Hold/Sell actions with confidence and citations
+It:
+- extracts holdings from screenshots or structured data
+- fetches signals from trusted market sources
+- applies analysis and action mapping
+- generates daily report artifacts
 
-See the [Quickstart](quickstart.md) to run locally.
+## Pipeline stages
+
+1. Extraction (Agent JSON / LLM / OCR fallback)
+2. Source collection
+3. Analysis and action table generation
+4. Swarm sandbox summary
+5. Report export
+
+- [Quickstart](quickstart.qmd)
+- [Architecture](architecture.qmd)
+- [Limitations](limitations.qmd)
+
+> Disclaimer: This tool supports research and monitoring workflows. It is not investment advice.

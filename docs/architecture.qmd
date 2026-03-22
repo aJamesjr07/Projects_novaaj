@@ -1,0 +1,17 @@
+---
+title: "Architecture"
+---
+
+Bharat Market Pulse keeps responsibilities separated:
+
+- `src/bharat_market_pulse/` — Python application logic
+- `docs/` — Quarto documentation site
+- `tests/` — deterministic test suite
+
+## Pipeline stages
+
+1. Portfolio extraction (Agent JSON → LLM → OCR fallback)
+2. Source fetch (official/news/social, with graceful degradation)
+3. Analysis and action generation
+4. Swarm sandbox overlay
+5. Report export (`.md`, `.csv`, `.json`, Telegram digest)

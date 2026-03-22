@@ -1,0 +1,28 @@
+---
+title: "Quickstart"
+---
+
+## 1) Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+cp .env.example .env
+```
+
+## 2) Run checks
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
+
+## 3) Run pipeline
+
+```bash
+python -m bharat_market_pulse.report_pipeline
+```
+
+The pipeline supports degraded mode (missing API keys, missing image, OCR/LLM failure) and still produces a report with warnings.

@@ -1,0 +1,8 @@
+---
+title: "Limitations"
+---
+
+- Output quality depends on data-source reliability and screenshot extraction quality.
+- External APIs can rate-limit or fail; degraded mode will continue with available data.
+- OCR/LLM extraction can miss symbols in low-quality screenshots.
+- This is a research-assist and portfolio-monitoring tool, **not financial advice**.

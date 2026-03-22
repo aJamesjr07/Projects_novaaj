@@ -2,13 +2,17 @@
 .env
 __pycache__/
 *.pyc
+*.egg-info/
+
 reports/
+src/bharat_market_pulse/reports/
+src/bharat_market_pulse/logs/
 .quarto/
 _site/
+
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
-*.egg-info/
 error_log.txt
