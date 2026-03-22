@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import List
 
-from ocr_engine import Holding
+from .ocr_engine import Holding
 
 
 def load_agent_extracted_holdings(file_path: str) -> List[Holding]:

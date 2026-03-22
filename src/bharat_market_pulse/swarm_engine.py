@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Sequence
 
-from news_collector import SeedNews
-from sanity_check import SanityResult, apply_volatility_guard
+from .news_collector import SeedNews
+from .sanity_check import SanityResult, apply_volatility_guard
 
 
 LOG_PATH = Path(__file__).resolve().parent / "logs" / "system_errors.log"

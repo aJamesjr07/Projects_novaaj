@@ -15,7 +15,7 @@ from typing import List
 
 import requests
 
-from ocr_engine import Holding
+from .ocr_engine import Holding
 
 
 @dataclass(frozen=True)

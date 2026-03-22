@@ -8,7 +8,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Sequence
 
-from analyzer import AnalysisRow
+from .analyzer import AnalysisRow
 
 
 def ensure_output_dir(path: Path) -> None:

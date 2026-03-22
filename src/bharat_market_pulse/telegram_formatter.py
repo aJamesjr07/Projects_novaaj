@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from analyzer import AnalysisRow
+from .analyzer import AnalysisRow
 
 
 def format_telegram_digest(rows: Sequence[AnalysisRow]) -> str:

@@ -1,7 +1,13 @@
 ---
-title: "Home"
+title: "Bharat Market Pulse"
 ---
 
-# Welcome
+# Bharat Market Pulse
 
-Your QMD + GitHub-friendly project is ready.
+India-focused portfolio analysis pipeline built with Python + Quarto.
+
+- Screenshot extraction (Agent JSON / LLM / OCR fallback)
+- Source-weighted market analysis
+- Buy/Hold/Sell actions with confidence and citations
+
+See the [Quickstart](docs/quickstart.md) to run locally.

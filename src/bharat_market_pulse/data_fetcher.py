@@ -11,7 +11,7 @@ from typing import Callable, Dict, List
 
 import requests
 
-from config import get_settings
+from .config import get_settings
 
 
 TWITTER_PILLARS = [

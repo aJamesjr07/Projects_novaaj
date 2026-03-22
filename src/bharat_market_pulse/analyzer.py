@@ -11,8 +11,8 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Sequence
 import re
 
-from data_fetcher import FeedItem
-from ocr_engine import Holding
+from .data_fetcher import FeedItem
+from .ocr_engine import Holding
 
 
 INDIA_IT_TICKERS = {"TCS", "INFY", "WIPRO", "HCLTECH", "TECHM"}

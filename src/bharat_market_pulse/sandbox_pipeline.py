@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from news_collector import collect_seed_news
-from swarm_engine import run_swarm_debate
+from .news_collector import collect_seed_news
+from .swarm_engine import run_swarm_debate
 
 
 def main() -> None:
